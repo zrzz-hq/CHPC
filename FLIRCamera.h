@@ -5,10 +5,10 @@ using namespace Spinnaker;
 class FLIRCamera {
 public:
 void getVersion();
-    virtual bool open(uint32_t devID);
-    virtual bool start();
-    virtual bool stop();
-    virtual void close();
+    bool open(uint32_t devID);
+    bool start();
+    bool stop();
+    void close();
 
 FLIRCamera();
 ~FLIRCamera();
