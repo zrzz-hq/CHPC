@@ -4,10 +4,10 @@
 int main(){
 
 FLIRCamera* cam = new FLIRCamera();
-cam->getVersion();
+//cam->getVersion();
 
 GPU* gpu = new GPU();
-gpu->getCudaVersion();
+//gpu->getCudaVersion();
 
 delete cam;
 delete gpu;
