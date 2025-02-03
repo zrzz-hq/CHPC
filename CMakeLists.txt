@@ -5,14 +5,16 @@ project(SpinnakerExample)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Find Spinnaker SDK
-find_package(Spinnaker REQUIRED)
-
+find_package(OpenCV REQUIRED)
+find_package(CUDA REQUIRED 10)
+include_directories(/opt/spinnaker/include/ ${CUDA_INCLUDE_DIRS})
 # Add executable
-add_executable(spinnaker_example main.cpp)
+add_executable(spinnaker_example main.cpp FLIRCamera.cpp GPU.cpp)
 
 # Link Spinnaker library
-target_link_libraries(spinnaker_example PRIVATE Spinnaker::Spinnaker)
+target_link_libraries(spinnaker_example /opt/spinnaker/lib/libSpinnaker.so
+					/opt/spinnaker/lib/libSpinVideo.so
+					${CUDA_LIBRARIES})
 
 # Include Spinnaker headers
-target_include_directories(spinnaker_example PRIVATE ${Spinnaker_INCLUDE_DIRS})
+#target_include_directories(spinnaker_example PRIVATE ${Spinnaker_INCLUDE_DIRS})

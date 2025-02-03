@@ -1,10 +1,16 @@
-#include FLIRCamera.h
+#include "FLIRCamera.h"
+#include "GPU.h"
 
 int main(){
 
-FLIRCamera cam = FLIRCamera();
-cam.getVersion();
+FLIRCamera* cam = new FLIRCamera();
+cam->getVersion();
 
+GPU* gpu = new GPU();
+gpu->getCudaVersion();
+
+delete cam;
+delete gpu;
 return 0;
 
 
