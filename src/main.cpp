@@ -17,6 +17,7 @@ int main(){
     std::cout << "Opencv version " << cv::getVersionMajor() << std::endl;
     
     cam->start();
+    cv::namedWindow("frame");
     while(1)
     {
         // cv::Mat& image = cam->read();

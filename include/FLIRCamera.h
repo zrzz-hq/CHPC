@@ -2,6 +2,7 @@
 #include <iostream>
 #include <opencv4/opencv2/opencv.hpp>
 #include <opencv4/opencv2/core.hpp>
+#include <algorithm>
 
 using namespace Spinnaker;
 class FLIRCamera {
@@ -23,8 +24,6 @@ private:
     CameraList mCamList;
     CameraPtr  mCam     = nullptr;
     void startStreaming();
-    GenApi::INodeMap& nodeMap;
-    GenApi::INodeMap& nodeMapTLDevice;
 
     int mWidth;
     int mHeight;

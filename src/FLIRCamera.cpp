@@ -57,8 +57,8 @@ bool FLIRCamera::open(uint32_t devID){
     mCam->Init();
 
     using namespace GenApi;
-    nodeMap = mCam->GetNodeMap();
-    nodeMapTLDevice = mCam->GetTLDeviceNodeMap();
+    INodeMap& nodeMap = mCam->GetNodeMap();
+    INodeMap& nodeMapTLDevice = mCam->GetTLDeviceNodeMap();
 
       CIntegerPtr ptrInt = nodeMap.GetNode("Width");
     if(IsAvailable(ptrInt))
@@ -153,6 +153,7 @@ cv::Mat& FLIRCamera::read()
 
     try
     {
+        INodeMap& nodeMap = mCam->GetNodeMap();
         // Enable manual frame rate control
         CBooleanPtr ptrFrameRateEnable = nodeMap.GetNode("AcquisitionFrameRateEnable");
         if (IsAvailable(ptrFrameRateEnable) && IsWritable(ptrFrameRateEnable))
@@ -175,8 +176,8 @@ cv::Mat& FLIRCamera::read()
         {
             return false;
         }
-                CFloatPtr ptrFloat = nodeMap.GetNode("AcquisitionFrameRate");
-        if(IsAvailable(ptrInt))
+        CFloatPtr ptrFloat = nodeMap.GetNode("AcquisitionFrameRate");
+        if(IsAvailable(ptrFloat))
         {
             mFPS =  ptrFloat->GetValue();
             std::cout << "FPS: " << mFPS << std::endl;
@@ -189,8 +190,9 @@ cv::Mat& FLIRCamera::read()
         return false;
     }
     }
-    bool setResolution(int width, int height){
-         using namespace Spinnaker;
+bool FLIRCamera::setResolution(int width, int height)
+{
+    using namespace Spinnaker;
     using namespace GenApi;
 
     if (mCam == nullptr)
@@ -198,11 +200,12 @@ cv::Mat& FLIRCamera::read()
 
     try
     {
+        INodeMap& nodeMap = mCam->GetNodeMap();
         // Set Width
         CIntegerPtr ptrWidth = nodeMap.GetNode("Width");
         if (IsAvailable(ptrWidth) && IsWritable(ptrWidth))
         {
-            width = std::min(width, (uint32_t)ptrWidth->GetMax()); // Ensure within limits
+            width = std::min(width, (int)ptrWidth->GetMax()); // Ensure within limits
             ptrWidth->SetValue(width);
         }
         else
@@ -213,7 +216,7 @@ cv::Mat& FLIRCamera::read()
         CIntegerPtr ptrHeight = nodeMap.GetNode("Height");
         if (IsAvailable(ptrHeight) && IsWritable(ptrHeight))
         {
-            height = std::min(height, (uint32_t)ptrHeight->GetMax()); // Ensure within limits
+            height = std::min(height, (int)ptrHeight->GetMax()); // Ensure within limits
             ptrHeight->SetValue(height);
         }
         else
@@ -222,16 +225,17 @@ cv::Mat& FLIRCamera::read()
         }
 
         CIntegerPtr ptrInt = nodeMap.GetNode("Width");
-            if(IsAvailable(ptrInt))
-            {
-                mWidth = ptrInt->GetMax();
-            }
+        if(IsAvailable(ptrInt))
+        {
+            mWidth = ptrInt->GetValue();
+        }
 
-            ptrInt = nodeMap.GetNode("Height");
-            if (IsAvailable(ptrInt))
-            {
-                mHeight =  ptrInt->GetMax();
-    }
+        ptrInt = nodeMap.GetNode("Height");
+        if (IsAvailable(ptrInt))
+        {
+            mHeight =  ptrInt->GetValue();
+        }
+        std::cout << "Width: " << mWidth << "Height: " << mHeight << std::endl;
         return true;
     }
     catch (Spinnaker::Exception& e)
@@ -240,4 +244,4 @@ cv::Mat& FLIRCamera::read()
         return false;
     }
 
-    }
+}
