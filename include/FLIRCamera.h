@@ -18,4 +18,7 @@ private:
     CameraList mCamList;
     CameraPtr  mCam     = nullptr;
     void startStreaming();
+
+    int mWidth;
+    int mHeight;
 };
