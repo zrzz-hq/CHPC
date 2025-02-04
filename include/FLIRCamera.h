@@ -12,7 +12,7 @@ void getVersion();
     bool stop();
     void close();
     cv::Mat& read();
-    bool setFPS(int targetFPS);
+    bool setFPS(double fps);
     bool setResolution(int width, int height);
 
 FLIRCamera();

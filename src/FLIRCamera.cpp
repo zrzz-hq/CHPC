@@ -144,19 +144,100 @@ cv::Mat& FLIRCamera::read()
 
 }
 
-    bool FLIRCamera::setFPS(int targetFPS){
+    bool FLIRCamera::setFPS(double fps){
         using namespace Spinnaker;
-        using namespace GenApi;
-        if (mCam == nullptr)
-            return false;
-        
-        CIntegerPtr ptrWidth = nodeMap.GetNode("Width");
-        if (IsAvailable){
+    using namespace GenApi;
 
+    if (mCam == nullptr)
+        return false; // Camera not available
+
+    try
+    {
+        // Enable manual frame rate control
+        CBooleanPtr ptrFrameRateEnable = nodeMap.GetNode("AcquisitionFrameRateEnable");
+        if (IsAvailable(ptrFrameRateEnable) && IsWritable(ptrFrameRateEnable))
+        {
+            ptrFrameRateEnable->SetValue(true);
+        }
+        else
+        {
+            return false;
         }
 
+        // Set the frame rate
+        CFloatPtr ptrFrameRate = nodeMap.GetNode("AcquisitionFrameRate");
+        if (IsAvailable(ptrFrameRate) && IsWritable(ptrFrameRate))
+        {
+            fps = std::min(fps, ptrFrameRate->GetMax()); // Ensure within max limit
+            ptrFrameRate->SetValue(fps);
+        }
+        else
+        {
+            return false;
+        }
+                CFloatPtr ptrFloat = nodeMap.GetNode("AcquisitionFrameRate");
+        if(IsAvailable(ptrInt))
+        {
+            mFPS =  ptrFloat->GetValue();
+            std::cout << "FPS: " << mFPS << std::endl;
+        }
+        return true;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        std::cerr << "Error setting FPS: " << e.what() << std::endl;
+        return false;
+    }
     }
     bool setResolution(int width, int height){
+         using namespace Spinnaker;
+    using namespace GenApi;
 
+    if (mCam == nullptr)
+        return false; // Camera not available
+
+    try
+    {
+        // Set Width
+        CIntegerPtr ptrWidth = nodeMap.GetNode("Width");
+        if (IsAvailable(ptrWidth) && IsWritable(ptrWidth))
+        {
+            width = std::min(width, (uint32_t)ptrWidth->GetMax()); // Ensure within limits
+            ptrWidth->SetValue(width);
+        }
+        else
+        {
+            return false;
+        }
+        // Set Height
+        CIntegerPtr ptrHeight = nodeMap.GetNode("Height");
+        if (IsAvailable(ptrHeight) && IsWritable(ptrHeight))
+        {
+            height = std::min(height, (uint32_t)ptrHeight->GetMax()); // Ensure within limits
+            ptrHeight->SetValue(height);
+        }
+        else
+        {
+            return false;
+        }
+
+        CIntegerPtr ptrInt = nodeMap.GetNode("Width");
+            if(IsAvailable(ptrInt))
+            {
+                mWidth = ptrInt->GetMax();
+            }
+
+            ptrInt = nodeMap.GetNode("Height");
+            if (IsAvailable(ptrInt))
+            {
+                mHeight =  ptrInt->GetMax();
+    }
+        return true;
+    }
+    catch (Spinnaker::Exception& e)
+    {
+        std::cerr << "Error setting resolution: " << e.what() << std::endl;
+        return false;
+    }
 
     }

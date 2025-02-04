@@ -8,6 +8,8 @@ int main(){
 
     std::unique_ptr<FLIRCamera> cam(new FLIRCamera());
     cam->open(0);
+    cam->setResolution(800,600);
+    cam->setFPS(60.0);
 
     // std::unique_ptr<GPU> gpu(new GPU());
     // gpu->getCudaVersion();
