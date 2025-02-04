@@ -1,5 +1,7 @@
 #include "Spinnaker.h"
 #include <iostream>
+#include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/core.hpp>
 
 using namespace Spinnaker;
 class FLIRCamera {
@@ -9,6 +11,9 @@ void getVersion();
     bool start();
     bool stop();
     void close();
+    cv::Mat& read();
+    bool setFPS(int targetFPS);
+    bool setResolution(int width, int height);
 
 FLIRCamera();
 ~FLIRCamera();
@@ -18,7 +23,12 @@ private:
     CameraList mCamList;
     CameraPtr  mCam     = nullptr;
     void startStreaming();
+    GenApi::INodeMap& nodeMap;
+    GenApi::INodeMap& nodeMapTLDevice;
 
     int mWidth;
     int mHeight;
+    int mFPS;
+
+    cv::Mat image;
 };

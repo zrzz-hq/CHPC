@@ -15,6 +15,7 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "../include"
   "/opt/spinnaker/include"
   "/usr/local/cuda-10.0/include"
+  "/usr/include/opencv4"
   )
 
 # Targets to which this target links.

@@ -60,15 +60,15 @@ include CMakeFiles/spinnaker_example.dir/flags.make
 CMakeFiles/spinnaker_example.dir/src/main.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
 CMakeFiles/spinnaker_example.dir/src/main.cpp.o: ../src/main.cpp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/spinnaker_example.dir/src/main.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/main.cpp.o -c /home/nvidia/Desktop/CHPC/src/main.cpp
+	/usr/bin/aarch64-linux-gnu-g++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/main.cpp.o -c /home/nvidia/Desktop/CHPC/src/main.cpp
 
 CMakeFiles/spinnaker_example.dir/src/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/main.cpp > CMakeFiles/spinnaker_example.dir/src/main.cpp.i
+	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/main.cpp > CMakeFiles/spinnaker_example.dir/src/main.cpp.i
 
 CMakeFiles/spinnaker_example.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/main.cpp -o CMakeFiles/spinnaker_example.dir/src/main.cpp.s
+	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/main.cpp -o CMakeFiles/spinnaker_example.dir/src/main.cpp.s
 
 CMakeFiles/spinnaker_example.dir/src/main.cpp.o.requires:
 
@@ -84,15 +84,15 @@ CMakeFiles/spinnaker_example.dir/src/main.cpp.o.provides.build: CMakeFiles/spinn
 CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
 CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o: ../src/FLIRCamera.cpp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o -c /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp
+	/usr/bin/aarch64-linux-gnu-g++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o -c /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp
 
 CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp > CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i
+	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp > CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i
 
 CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp -o CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s
+	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp -o CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s
 
 CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.requires:
 
@@ -108,15 +108,15 @@ CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.provides.build: CMakeFiles
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o: ../src/GPU.cpp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o -c /home/nvidia/Desktop/CHPC/src/GPU.cpp
+	/usr/bin/aarch64-linux-gnu-g++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o -c /home/nvidia/Desktop/CHPC/src/GPU.cpp
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/GPU.cpp > CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i
+	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/GPU.cpp > CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/GPU.cpp -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s
+	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/GPU.cpp -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires:
 
@@ -145,6 +145,21 @@ spinnaker_example: CMakeFiles/spinnaker_example.dir/build.make
 spinnaker_example: /opt/spinnaker/lib/libSpinnaker.so
 spinnaker_example: /usr/local/cuda-10.0/lib64/libcudart_static.a
 spinnaker_example: /usr/lib/aarch64-linux-gnu/librt.so
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_dnn.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_gapi.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_highgui.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_ml.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_objdetect.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_photo.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_stitching.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_video.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_videoio.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_imgcodecs.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_calib3d.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_features2d.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_flann.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_imgproc.so.4.1.1
+spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_core.so.4.1.1
 spinnaker_example: CMakeFiles/spinnaker_example.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable spinnaker_example"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/spinnaker_example.dir/link.txt --verbose=$(VERBOSE)
