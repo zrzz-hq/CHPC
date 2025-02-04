@@ -6,5 +6,5 @@ CXX_FLAGS =   -std=gnu++11
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/opt/spinnaker/include -I/usr/local/cuda-10.0/include 
+CXX_INCLUDES = -I/home/nvidia/Desktop/CHPC/include -I/opt/spinnaker/include -I/usr/local/cuda-10.0/include 
 

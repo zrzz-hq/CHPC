@@ -328,6 +328,9 @@ Cuda_DIR:PATH=Cuda_DIR-NOTFOUND
 //The directory containing a CMake configuration file for OpenCV.
 OpenCV_DIR:PATH=/usr/lib/aarch64-linux-gnu/cmake/opencv4
 
+//Path to a library.
+SPINNAKER_LIB:FILEPATH=SPINNAKER_LIB-NOTFOUND
+
 //Value Computed by CMake
 SpinnakerExample_BINARY_DIR:STATIC=/home/nvidia/Desktop/CHPC/build
 

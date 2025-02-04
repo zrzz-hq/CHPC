@@ -6,31 +6,31 @@
 
 #IncludeRegexTransform: 
 
-/home/nvidia/Desktop/CHPC/FLIRCamera.cpp
-FLIRCamera.h
-/home/nvidia/Desktop/CHPC/FLIRCamera.h
-
-/home/nvidia/Desktop/CHPC/FLIRCamera.h
+../include/FLIRCamera.h
 Spinnaker.h
-/home/nvidia/Desktop/CHPC/Spinnaker.h
+../include/Spinnaker.h
 iostream
 -
 
-/home/nvidia/Desktop/CHPC/GPU.cpp
-GPU.h
-/home/nvidia/Desktop/CHPC/GPU.h
-
-/home/nvidia/Desktop/CHPC/GPU.h
+../include/GPU.h
 cuda_runtime.h
-/home/nvidia/Desktop/CHPC/cuda_runtime.h
+../include/cuda_runtime.h
 iostream
 -
 
-/home/nvidia/Desktop/CHPC/main.cpp
+/home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp
 FLIRCamera.h
-/home/nvidia/Desktop/CHPC/FLIRCamera.h
+/home/nvidia/Desktop/CHPC/src/FLIRCamera.h
+
+/home/nvidia/Desktop/CHPC/src/GPU.cpp
 GPU.h
-/home/nvidia/Desktop/CHPC/GPU.h
+/home/nvidia/Desktop/CHPC/src/GPU.h
+
+/home/nvidia/Desktop/CHPC/src/main.cpp
+FLIRCamera.h
+/home/nvidia/Desktop/CHPC/src/FLIRCamera.h
+GPU.h
+/home/nvidia/Desktop/CHPC/src/GPU.h
 
 /opt/spinnaker/include/BasePtr.h
 SpinnakerPlatform.h

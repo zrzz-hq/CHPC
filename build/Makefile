@@ -123,86 +123,86 @@ spinnaker_example/fast:
 	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/build
 .PHONY : spinnaker_example/fast
 
-FLIRCamera.o: FLIRCamera.cpp.o
+src/FLIRCamera.o: src/FLIRCamera.cpp.o
 
-.PHONY : FLIRCamera.o
-
-# target to build an object file
-FLIRCamera.cpp.o:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o
-.PHONY : FLIRCamera.cpp.o
-
-FLIRCamera.i: FLIRCamera.cpp.i
-
-.PHONY : FLIRCamera.i
-
-# target to preprocess a source file
-FLIRCamera.cpp.i:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.i
-.PHONY : FLIRCamera.cpp.i
-
-FLIRCamera.s: FLIRCamera.cpp.s
-
-.PHONY : FLIRCamera.s
-
-# target to generate assembly for a file
-FLIRCamera.cpp.s:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.s
-.PHONY : FLIRCamera.cpp.s
-
-GPU.o: GPU.cpp.o
-
-.PHONY : GPU.o
+.PHONY : src/FLIRCamera.o
 
 # target to build an object file
-GPU.cpp.o:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/GPU.cpp.o
-.PHONY : GPU.cpp.o
+src/FLIRCamera.cpp.o:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o
+.PHONY : src/FLIRCamera.cpp.o
 
-GPU.i: GPU.cpp.i
+src/FLIRCamera.i: src/FLIRCamera.cpp.i
 
-.PHONY : GPU.i
+.PHONY : src/FLIRCamera.i
 
 # target to preprocess a source file
-GPU.cpp.i:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/GPU.cpp.i
-.PHONY : GPU.cpp.i
+src/FLIRCamera.cpp.i:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i
+.PHONY : src/FLIRCamera.cpp.i
 
-GPU.s: GPU.cpp.s
+src/FLIRCamera.s: src/FLIRCamera.cpp.s
 
-.PHONY : GPU.s
+.PHONY : src/FLIRCamera.s
 
 # target to generate assembly for a file
-GPU.cpp.s:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/GPU.cpp.s
-.PHONY : GPU.cpp.s
+src/FLIRCamera.cpp.s:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s
+.PHONY : src/FLIRCamera.cpp.s
 
-main.o: main.cpp.o
+src/GPU.o: src/GPU.cpp.o
 
-.PHONY : main.o
+.PHONY : src/GPU.o
 
 # target to build an object file
-main.cpp.o:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/main.cpp.o
-.PHONY : main.cpp.o
+src/GPU.cpp.o:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
+.PHONY : src/GPU.cpp.o
 
-main.i: main.cpp.i
+src/GPU.i: src/GPU.cpp.i
 
-.PHONY : main.i
+.PHONY : src/GPU.i
 
 # target to preprocess a source file
-main.cpp.i:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/main.cpp.i
-.PHONY : main.cpp.i
+src/GPU.cpp.i:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i
+.PHONY : src/GPU.cpp.i
 
-main.s: main.cpp.s
+src/GPU.s: src/GPU.cpp.s
 
-.PHONY : main.s
+.PHONY : src/GPU.s
 
 # target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/main.cpp.s
-.PHONY : main.cpp.s
+src/GPU.cpp.s:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s
+.PHONY : src/GPU.cpp.s
+
+src/main.o: src/main.cpp.o
+
+.PHONY : src/main.o
+
+# target to build an object file
+src/main.cpp.o:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
+
+src/main.i: src/main.cpp.i
+
+.PHONY : src/main.i
+
+# target to preprocess a source file
+src/main.cpp.i:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
+
+src/main.s: src/main.cpp.s
+
+.PHONY : src/main.s
+
+# target to generate assembly for a file
+src/main.cpp.s:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
 
 # Help Target
 help:
@@ -213,15 +213,15 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... spinnaker_example"
 	@echo "... edit_cache"
-	@echo "... FLIRCamera.o"
-	@echo "... FLIRCamera.i"
-	@echo "... FLIRCamera.s"
-	@echo "... GPU.o"
-	@echo "... GPU.i"
-	@echo "... GPU.s"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
+	@echo "... src/FLIRCamera.o"
+	@echo "... src/FLIRCamera.i"
+	@echo "... src/FLIRCamera.s"
+	@echo "... src/GPU.o"
+	@echo "... src/GPU.i"
+	@echo "... src/GPU.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
 .PHONY : help
 
 

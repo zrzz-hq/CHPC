@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/spinnaker_example.dir/main.cpp.o"
-  "CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o"
-  "CMakeFiles/spinnaker_example.dir/GPU.cpp.o"
+  "CMakeFiles/spinnaker_example.dir/src/main.cpp.o"
+  "CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o"
+  "CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
   "spinnaker_example.pdb"
   "spinnaker_example"
 )

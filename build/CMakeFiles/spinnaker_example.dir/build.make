@@ -57,93 +57,92 @@ include CMakeFiles/spinnaker_example.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/spinnaker_example.dir/flags.make
 
-CMakeFiles/spinnaker_example.dir/main.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
-CMakeFiles/spinnaker_example.dir/main.cpp.o: ../main.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/spinnaker_example.dir/main.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/main.cpp.o -c /home/nvidia/Desktop/CHPC/main.cpp
+CMakeFiles/spinnaker_example.dir/src/main.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
+CMakeFiles/spinnaker_example.dir/src/main.cpp.o: ../src/main.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/spinnaker_example.dir/src/main.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/main.cpp.o -c /home/nvidia/Desktop/CHPC/src/main.cpp
 
-CMakeFiles/spinnaker_example.dir/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/main.cpp > CMakeFiles/spinnaker_example.dir/main.cpp.i
+CMakeFiles/spinnaker_example.dir/src/main.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/main.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/main.cpp > CMakeFiles/spinnaker_example.dir/src/main.cpp.i
 
-CMakeFiles/spinnaker_example.dir/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/main.cpp -o CMakeFiles/spinnaker_example.dir/main.cpp.s
+CMakeFiles/spinnaker_example.dir/src/main.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/main.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/main.cpp -o CMakeFiles/spinnaker_example.dir/src/main.cpp.s
 
-CMakeFiles/spinnaker_example.dir/main.cpp.o.requires:
+CMakeFiles/spinnaker_example.dir/src/main.cpp.o.requires:
 
-.PHONY : CMakeFiles/spinnaker_example.dir/main.cpp.o.requires
+.PHONY : CMakeFiles/spinnaker_example.dir/src/main.cpp.o.requires
 
-CMakeFiles/spinnaker_example.dir/main.cpp.o.provides: CMakeFiles/spinnaker_example.dir/main.cpp.o.requires
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/main.cpp.o.provides.build
-.PHONY : CMakeFiles/spinnaker_example.dir/main.cpp.o.provides
+CMakeFiles/spinnaker_example.dir/src/main.cpp.o.provides: CMakeFiles/spinnaker_example.dir/src/main.cpp.o.requires
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/main.cpp.o.provides.build
+.PHONY : CMakeFiles/spinnaker_example.dir/src/main.cpp.o.provides
 
-CMakeFiles/spinnaker_example.dir/main.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/main.cpp.o
-
-
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o: ../FLIRCamera.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o -c /home/nvidia/Desktop/CHPC/FLIRCamera.cpp
-
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/FLIRCamera.cpp > CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.i
-
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/FLIRCamera.cpp -o CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.s
-
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.requires:
-
-.PHONY : CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.requires
-
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.provides: CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.requires
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.provides.build
-.PHONY : CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.provides
-
-CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o
+CMakeFiles/spinnaker_example.dir/src/main.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/src/main.cpp.o
 
 
-CMakeFiles/spinnaker_example.dir/GPU.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
-CMakeFiles/spinnaker_example.dir/GPU.cpp.o: ../GPU.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/spinnaker_example.dir/GPU.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/GPU.cpp.o -c /home/nvidia/Desktop/CHPC/GPU.cpp
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o: ../src/FLIRCamera.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o -c /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp
 
-CMakeFiles/spinnaker_example.dir/GPU.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/GPU.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/GPU.cpp > CMakeFiles/spinnaker_example.dir/GPU.cpp.i
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp > CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.i
 
-CMakeFiles/spinnaker_example.dir/GPU.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/GPU.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/GPU.cpp -o CMakeFiles/spinnaker_example.dir/GPU.cpp.s
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp -o CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.s
 
-CMakeFiles/spinnaker_example.dir/GPU.cpp.o.requires:
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.requires:
 
-.PHONY : CMakeFiles/spinnaker_example.dir/GPU.cpp.o.requires
+.PHONY : CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.requires
 
-CMakeFiles/spinnaker_example.dir/GPU.cpp.o.provides: CMakeFiles/spinnaker_example.dir/GPU.cpp.o.requires
-	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/GPU.cpp.o.provides.build
-.PHONY : CMakeFiles/spinnaker_example.dir/GPU.cpp.o.provides
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.provides: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.requires
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.provides.build
+.PHONY : CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.provides
 
-CMakeFiles/spinnaker_example.dir/GPU.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/GPU.cpp.o
+CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o
+
+
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o: ../src/GPU.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o -c /home/nvidia/Desktop/CHPC/src/GPU.cpp
+
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/GPU.cpp > CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i
+
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/GPU.cpp -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s
+
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires:
+
+.PHONY : CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires
+
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.provides: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.provides.build
+.PHONY : CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.provides
+
+CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
 
 
 # Object files for target spinnaker_example
 spinnaker_example_OBJECTS = \
-"CMakeFiles/spinnaker_example.dir/main.cpp.o" \
-"CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o" \
-"CMakeFiles/spinnaker_example.dir/GPU.cpp.o"
+"CMakeFiles/spinnaker_example.dir/src/main.cpp.o" \
+"CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o" \
+"CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
 
 # External object files for target spinnaker_example
 spinnaker_example_EXTERNAL_OBJECTS =
 
-spinnaker_example: CMakeFiles/spinnaker_example.dir/main.cpp.o
-spinnaker_example: CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o
-spinnaker_example: CMakeFiles/spinnaker_example.dir/GPU.cpp.o
+spinnaker_example: CMakeFiles/spinnaker_example.dir/src/main.cpp.o
+spinnaker_example: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o
+spinnaker_example: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
 spinnaker_example: CMakeFiles/spinnaker_example.dir/build.make
 spinnaker_example: /opt/spinnaker/lib/libSpinnaker.so
-spinnaker_example: /opt/spinnaker/lib/libSpinVideo.so
 spinnaker_example: /usr/local/cuda-10.0/lib64/libcudart_static.a
 spinnaker_example: /usr/lib/aarch64-linux-gnu/librt.so
 spinnaker_example: CMakeFiles/spinnaker_example.dir/link.txt
@@ -155,9 +154,9 @@ CMakeFiles/spinnaker_example.dir/build: spinnaker_example
 
 .PHONY : CMakeFiles/spinnaker_example.dir/build
 
-CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/main.cpp.o.requires
-CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o.requires
-CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/GPU.cpp.o.requires
+CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/main.cpp.o.requires
+CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.requires
+CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires
 
 .PHONY : CMakeFiles/spinnaker_example.dir/requires
 

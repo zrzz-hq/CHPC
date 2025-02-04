@@ -4,14 +4,15 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/nvidia/Desktop/CHPC/FLIRCamera.cpp" "/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir/FLIRCamera.cpp.o"
-  "/home/nvidia/Desktop/CHPC/GPU.cpp" "/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir/GPU.cpp.o"
-  "/home/nvidia/Desktop/CHPC/main.cpp" "/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir/main.cpp.o"
+  "/home/nvidia/Desktop/CHPC/src/FLIRCamera.cpp" "/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o"
+  "/home/nvidia/Desktop/CHPC/src/GPU.cpp" "/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
+  "/home/nvidia/Desktop/CHPC/src/main.cpp" "/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir/src/main.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
+  "../include"
   "/opt/spinnaker/include"
   "/usr/local/cuda-10.0/include"
   )
