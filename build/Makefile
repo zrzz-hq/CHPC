@@ -177,6 +177,33 @@ src/GPU.cpp.s:
 	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s
 .PHONY : src/GPU.cpp.s
 
+src/kernel.o: src/kernel.cu.o
+
+.PHONY : src/kernel.o
+
+# target to build an object file
+src/kernel.cu.o:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/kernel.cu.o
+.PHONY : src/kernel.cu.o
+
+src/kernel.i: src/kernel.cu.i
+
+.PHONY : src/kernel.i
+
+# target to preprocess a source file
+src/kernel.cu.i:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/kernel.cu.i
+.PHONY : src/kernel.cu.i
+
+src/kernel.s: src/kernel.cu.s
+
+.PHONY : src/kernel.s
+
+# target to generate assembly for a file
+src/kernel.cu.s:
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/kernel.cu.s
+.PHONY : src/kernel.cu.s
+
 src/main.o: src/main.cpp.o
 
 .PHONY : src/main.o
@@ -219,6 +246,9 @@ help:
 	@echo "... src/GPU.o"
 	@echo "... src/GPU.i"
 	@echo "... src/GPU.s"
+	@echo "... src/kernel.o"
+	@echo "... src/kernel.i"
+	@echo "... src/kernel.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

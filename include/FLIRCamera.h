@@ -12,7 +12,7 @@ void getVersion();
     bool start();
     bool stop();
     void close();
-    cv::Mat& read();
+    ImagePtr read();
     bool setFPS(double fps);
     bool setResolution(int width, int height);
 

@@ -107,16 +107,16 @@ CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.provides.build: CMakeFiles
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o: CMakeFiles/spinnaker_example.dir/flags.make
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o: ../src/GPU.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
-	/usr/bin/aarch64-linux-gnu-g++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o -c /home/nvidia/Desktop/CHPC/src/GPU.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CUDA object CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
+	/usr/local/cuda-10.0/bin/nvcc  $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -x cu -c /home/nvidia/Desktop/CHPC/src/GPU.cpp -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i"
-	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nvidia/Desktop/CHPC/src/GPU.cpp > CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CUDA source to CMakeFiles/spinnaker_example.dir/src/GPU.cpp.i"
+	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_PREPROCESSED_SOURCE
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s"
-	/usr/bin/aarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nvidia/Desktop/CHPC/src/GPU.cpp -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CUDA source to assembly CMakeFiles/spinnaker_example.dir/src/GPU.cpp.s"
+	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_ASSEMBLY_SOURCE
 
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires:
 
@@ -129,11 +129,78 @@ CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.provides: CMakeFiles/spinnaker_ex
 CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.provides.build: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
 
 
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.o: CMakeFiles/spinnaker_example.dir/flags.make
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.o: ../src/kernel.cu
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CUDA object CMakeFiles/spinnaker_example.dir/src/kernel.cu.o"
+	/usr/local/cuda-10.0/bin/nvcc  $(CUDA_DEFINES) $(CUDA_INCLUDES) $(CUDA_FLAGS) -x cu -c /home/nvidia/Desktop/CHPC/src/kernel.cu -o CMakeFiles/spinnaker_example.dir/src/kernel.cu.o
+
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CUDA source to CMakeFiles/spinnaker_example.dir/src/kernel.cu.i"
+	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_PREPROCESSED_SOURCE
+
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CUDA source to assembly CMakeFiles/spinnaker_example.dir/src/kernel.cu.s"
+	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_ASSEMBLY_SOURCE
+
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.requires:
+
+.PHONY : CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.requires
+
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.provides: CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.requires
+	$(MAKE) -f CMakeFiles/spinnaker_example.dir/build.make CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.provides.build
+.PHONY : CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.provides
+
+CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.provides.build: CMakeFiles/spinnaker_example.dir/src/kernel.cu.o
+
+
 # Object files for target spinnaker_example
 spinnaker_example_OBJECTS = \
 "CMakeFiles/spinnaker_example.dir/src/main.cpp.o" \
 "CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o" \
-"CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o"
+"CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o" \
+"CMakeFiles/spinnaker_example.dir/src/kernel.cu.o"
+
+# External object files for target spinnaker_example
+spinnaker_example_EXTERNAL_OBJECTS =
+
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: CMakeFiles/spinnaker_example.dir/src/main.cpp.o
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: CMakeFiles/spinnaker_example.dir/src/kernel.cu.o
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: CMakeFiles/spinnaker_example.dir/build.make
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /opt/spinnaker/lib/libSpinnaker.so
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/local/cuda-10.0/lib64/libcudart_static.a
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/librt.so
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_dnn.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_gapi.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_highgui.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_ml.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_objdetect.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_photo.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_stitching.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_video.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_videoio.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_imgcodecs.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_calib3d.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_features2d.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_flann.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_imgproc.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: /usr/lib/aarch64-linux-gnu/libopencv_core.so.4.1.1
+CMakeFiles/spinnaker_example.dir/cmake_device_link.o: CMakeFiles/spinnaker_example.dir/dlink.txt
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CUDA device code CMakeFiles/spinnaker_example.dir/cmake_device_link.o"
+	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/spinnaker_example.dir/dlink.txt --verbose=$(VERBOSE)
+
+# Rule to build all files generated by this target.
+CMakeFiles/spinnaker_example.dir/build: CMakeFiles/spinnaker_example.dir/cmake_device_link.o
+
+.PHONY : CMakeFiles/spinnaker_example.dir/build
+
+# Object files for target spinnaker_example
+spinnaker_example_OBJECTS = \
+"CMakeFiles/spinnaker_example.dir/src/main.cpp.o" \
+"CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o" \
+"CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o" \
+"CMakeFiles/spinnaker_example.dir/src/kernel.cu.o"
 
 # External object files for target spinnaker_example
 spinnaker_example_EXTERNAL_OBJECTS =
@@ -141,6 +208,7 @@ spinnaker_example_EXTERNAL_OBJECTS =
 spinnaker_example: CMakeFiles/spinnaker_example.dir/src/main.cpp.o
 spinnaker_example: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o
 spinnaker_example: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o
+spinnaker_example: CMakeFiles/spinnaker_example.dir/src/kernel.cu.o
 spinnaker_example: CMakeFiles/spinnaker_example.dir/build.make
 spinnaker_example: /opt/spinnaker/lib/libSpinnaker.so
 spinnaker_example: /usr/local/cuda-10.0/lib64/libcudart_static.a
@@ -160,8 +228,9 @@ spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_features2d.so.4.1.1
 spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_flann.so.4.1.1
 spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_imgproc.so.4.1.1
 spinnaker_example: /usr/lib/aarch64-linux-gnu/libopencv_core.so.4.1.1
+spinnaker_example: CMakeFiles/spinnaker_example.dir/cmake_device_link.o
 spinnaker_example: CMakeFiles/spinnaker_example.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable spinnaker_example"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/nvidia/Desktop/CHPC/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable spinnaker_example"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/spinnaker_example.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -172,6 +241,7 @@ CMakeFiles/spinnaker_example.dir/build: spinnaker_example
 CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/main.cpp.o.requires
 CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/FLIRCamera.cpp.o.requires
 CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o.requires
+CMakeFiles/spinnaker_example.dir/requires: CMakeFiles/spinnaker_example.dir/src/kernel.cu.o.requires
 
 .PHONY : CMakeFiles/spinnaker_example.dir/requires
 

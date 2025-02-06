@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(SpinnakerExample)
+project(SpinnakerExample LANGUAGES CUDA CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 11)
@@ -10,8 +10,10 @@ find_package(CUDA REQUIRED 10)
 include_directories(include /opt/spinnaker/include/ ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
 set(SPINNAKER_LIBS /opt/spinnaker/lib/libSpinnaker.so)
+
+set_source_files_properties(src/GPU.cpp PROPERTIES LANGUAGE CUDA)
 # Add executable
-add_executable(spinnaker_example src/main.cpp src/FLIRCamera.cpp src/GPU.cpp)
+add_executable(spinnaker_example src/main.cpp src/FLIRCamera.cpp src/GPU.cpp src/kernel.cu)
 
 # Link Spinnaker library
 target_link_libraries(spinnaker_example ${SPINNAKER_LIBS} ${CUDA_LIBRARIES} ${OpenCV_LIBS})

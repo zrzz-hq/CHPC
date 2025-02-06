@@ -11,7 +11,12 @@
 },
 {
   "directory": "/home/nvidia/Desktop/CHPC/build",
-  "command": "/usr/bin/aarch64-linux-gnu-g++   -I/home/nvidia/Desktop/CHPC/include -I/opt/spinnaker/include -I/usr/local/cuda-10.0/include -isystem /usr/include/opencv4  -g   -std=gnu++11 -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o -c /home/nvidia/Desktop/CHPC/src/GPU.cpp",
+  "command": "/usr/local/cuda-10.0/bin/nvcc   -I/home/nvidia/Desktop/CHPC/include -I/opt/spinnaker/include -I/usr/local/cuda-10.0/include -isystem=/usr/include/opencv4  -g   -x cu -c /home/nvidia/Desktop/CHPC/src/GPU.cpp -o CMakeFiles/spinnaker_example.dir/src/GPU.cpp.o",
   "file": "/home/nvidia/Desktop/CHPC/src/GPU.cpp"
+},
+{
+  "directory": "/home/nvidia/Desktop/CHPC/build",
+  "command": "/usr/local/cuda-10.0/bin/nvcc   -I/home/nvidia/Desktop/CHPC/include -I/opt/spinnaker/include -I/usr/local/cuda-10.0/include -isystem=/usr/include/opencv4  -g   -x cu -c /home/nvidia/Desktop/CHPC/src/kernel.cu -o CMakeFiles/spinnaker_example.dir/src/kernel.cu.o",
+  "file": "/home/nvidia/Desktop/CHPC/src/kernel.cu"
 }
 ]

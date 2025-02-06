@@ -99,21 +99,23 @@ void FLIRCamera::close()
 bool FLIRCamera::start()
 {
     mCam->BeginAcquisition();
-    image = cv::Mat(mHeight, mWidth, CV_8UC1);
+    // image = cv::Mat(mHeight, mWidth, CV_8UC1);
 }
 
 bool FLIRCamera::stop()
 {
     mCam->EndAcquisition();
-    image.release();
+    // image.release();
 }
 
-cv::Mat& FLIRCamera::read()
+ImagePtr FLIRCamera::read()
 {
+    ImagePtr pResultImage = nullptr;
+
     try
     {
         // Retrieve next received image
-        ImagePtr pResultImage = mCam->GetNextImage(1000);
+        pResultImage = mCam->GetNextImage();
 
         // Ensure image is complete
         if (pResultImage->IsIncomplete())
@@ -125,22 +127,20 @@ cv::Mat& FLIRCamera::read()
         else
         {
             void* src = pResultImage->GetData();
-            // memcpy(image.data, src, pResultImage->GetBufferSize());
-            cv::imshow("frame", cv::Mat(mHeight, mWidth, CV_8UC1, src));
             
-            size_t sz = pResultImage->GetImageSize();
+            // size_t sz = pResultImage->GetImageSize();
         }
 
         // Release image
-        pResultImage->Release();
+        // pResultImage->Release();
 
     }
     catch (Spinnaker::Exception& e)
     {
-        std::cout << "Error: " << e.what();
+        throw std::runtime_error("Spinnaker Error: " + std::string(e.what()));
     }
 
-    return image;
+    return pResultImage;
 
 }
 
