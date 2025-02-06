@@ -32,8 +32,8 @@ int main(){
         float* phase = gpu->runNovak(imagePtr);
         if(phase != nullptr)
         {
-            cv::Mat phaseImage(800,600,CV_32FC1,phase);
-            cv::imshow("phase", phaseImage);
+            // cv::Mat phaseImage(800,600,CV_32FC1,phase);
+            // cv::imshow("phase", phaseImage);
         }
 
         cv::putText(image, std::to_string(1000.0/duration), cv::Point(10,30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,255,0), 2);
