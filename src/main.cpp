@@ -11,43 +11,114 @@
 
 #define WIDTH 800
 #define HEIGHT 600
-#define FRAMERATE 90.0
+#define FRAMERATE 120.0
 
 
-std::queue<Spinnaker::ImagePtr> imageQueue;
-pthread_mutex_t imageQueueMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t imageQueueCond = PTHREAD_COND_INITIALIZER;
+std::queue<Spinnaker::ImagePtr> imageQueue1;
+pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
 
-std::queue<Spinnaker::ImagePtr> phaseQueue;
-pthread_mutex_t phaseQueueMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t phaseQueueCond = PTHREAD_COND_INITIALIZER;
+std::queue<Spinnaker::ImagePtr> imageQueue2;
+pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
+
+// TODO: add a phase buffer pool in the GPU class.
+// std::queue<Spinnaker::ImagePtr> phaseQueue;
+// pthread_mutex_t phaseQueueMutex = PTHREAD_MUTEX_INITIALIZER;
+// pthread_cond_t phaseQueueCond = PTHREAD_COND_INITIALIZER;
+
+void gpuThreadCleanUp(void* arg)
+{
+    pthread_mutex_lock(&imageQueue2Mutex);
+
+    while(imageQueue2.size() > 0)
+        imageQueue2.pop();
+    
+    pthread_mutex_unlock(&imageQueue2Mutex);
+
+}
 
 void* gpuThreadFunc(void* arg)
 {
+    pthread_cleanup_push(gpuThreadCleanUp, NULL);
+
     GPU gpu(WIDTH,HEIGHT);
     gpu.getCudaVersion();
     while(1)
     {
         Spinnaker::ImagePtr imagePtr;
-        pthread_mutex_lock(&imageQueueMutex);
+        pthread_mutex_lock(&imageQueue1Mutex);
 
-        while(imageQueue.size() == 0)
-            pthread_cond_wait(&imageQueueCond, &imageQueueMutex);
+        while(imageQueue1.size() == 0)
+            pthread_cond_wait(&imageQueue1Cond, &imageQueue1Mutex);
 
-        imagePtr = imageQueue.front();
-        imageQueue.pop();
+        imagePtr = imageQueue1.front();
+        imageQueue1.pop();
 
-        pthread_mutex_unlock(&imageQueueMutex);
+        pthread_mutex_unlock(&imageQueue1Mutex);
 
         float* phase = gpu.runNovak(imagePtr);
-        if(phase != nullptr)
-        {
-            cv::Mat phaseImage(HEIGHT,WIDTH,CV_32FC1,phase);
-            cv::imshow("phase", phaseImage);
-        }
+        // TODO: write the following code in another thread
+        // if(phase != nullptr)
+        // {
+        //     cv::Mat phaseImage(HEIGHT,WIDTH,CV_32FC1,phase);
+        //     cv::imshow("phase", phaseImage);
+        // }
+
+        pthread_mutex_lock(&imageQueue2Mutex);
+
+        imageQueue2.push(imagePtr);
+
+        pthread_cond_signal(&imageQueue2Cond);
+        pthread_mutex_unlock(&imageQueue2Mutex);
 
         pthread_testcancel();
     }
+
+    pthread_cleanup_pop(1);
+    return 0;
+}
+
+void cameraThreadCleanUp(void* arg)
+{
+    pthread_mutex_lock(&imageQueue1Mutex);
+
+    while(imageQueue1.size() > 0)
+        imageQueue1.pop();
+    
+    pthread_mutex_unlock(&imageQueue1Mutex);
+}
+
+void* cameraThreadFunc(void* arg)
+{
+    pthread_cleanup_push(cameraThreadCleanUp, NULL);
+
+    FLIRCamera cam;
+    cam.open(0);
+    cam.setResolution(WIDTH,HEIGHT);
+    cam.setFPS(FRAMERATE);
+
+    cam.start();
+    while(1)
+    {
+        Spinnaker::ImagePtr imagePtr = cam.read();
+
+        pthread_mutex_lock(&imageQueue1Mutex);
+
+        imageQueue1.push(imagePtr);
+
+        pthread_cond_signal(&imageQueue1Cond);
+        pthread_mutex_unlock(&imageQueue1Mutex);
+
+        pthread_testcancel();
+        
+    }
+
+    cam.stop();
+    cam.close();
+
+    pthread_cleanup_pop(1);
+    return 0;
 }
 
 int main()
@@ -59,20 +130,29 @@ int main()
         return 1;
     }
 
-    FLIRCamera cam;
-    cam.open(0);
-    cam.setResolution(WIDTH,HEIGHT);
-    cam.setFPS(FRAMERATE);
+    pthread_t cameraThread;
+    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, NULL) == -1)
+    {
+        std::cout << "Failed to create camera thread" << std::endl;
+        return 1;
+    }
 
-    std::cout << "Opencv version " << cv::getVersionMajor() << std::endl;
+    // std::cout << "Opencv version " << cv::getVersionMajor() << std::endl;
     
-    cam.start();
     auto last = std::chrono::system_clock::now();
     while(1)
     {
-       
-        Spinnaker::ImagePtr imagePtr = cam.read();
+        Spinnaker::ImagePtr imagePtr;
 
+        pthread_mutex_lock(&imageQueue2Mutex);
+        while(imageQueue2.size() == 0)
+            pthread_cond_wait(&imageQueue2Cond, &imageQueue2Mutex);
+
+        imagePtr = imageQueue2.front();
+        imageQueue2.pop();
+
+        pthread_mutex_unlock(&imageQueue2Mutex);
+       
         cv::Mat image(imagePtr->GetHeight(),imagePtr->GetWidth(),CV_8UC1, imagePtr->GetData());
 
         auto now = std::chrono::system_clock::now();
@@ -82,22 +162,19 @@ int main()
         cv::putText(image, std::to_string(1000.0/duration), cv::Point(10,30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,255,0), 2);
         cv::imshow("frame",image);
 
-        pthread_mutex_lock(&imageQueueMutex);
-        imageQueue.push(imagePtr);
-        pthread_cond_signal(&imageQueueCond);
-        pthread_mutex_unlock(&imageQueueMutex);
+        imagePtr->Release();
 
         if(cv::waitKey(1) == 'q')
             break;
     }
 
     cv::destroyAllWindows();
-    
-    cam.stop();
-    cam.close();
 
     pthread_cancel(gpuThread);
     pthread_join(gpuThread, NULL);
+
+    pthread_cancel(cameraThread);
+    pthread_join(cameraThread, NULL);
 
     return 0;
 

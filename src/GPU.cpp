@@ -74,7 +74,7 @@ float* GPU::runNovak(Spinnaker::ImagePtr newImage)
         return nullptr;
     }
 
-    newImage -> Release();
+    // newImage -> Release();
     
     compute_phase<<<blockPerGrid,256>>>(buffers[0],
                                         buffers[1],
