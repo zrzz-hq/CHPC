@@ -1,3 +1,0 @@
-/home/nvidia/Desktop/CHPC/build/CMakeFiles/rebuild_cache.dir
-/home/nvidia/Desktop/CHPC/build/CMakeFiles/spinnaker_example.dir
-/home/nvidia/Desktop/CHPC/build/CMakeFiles/edit_cache.dir

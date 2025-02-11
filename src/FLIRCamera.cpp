@@ -1,8 +1,10 @@
 #include "FLIRCamera.h"
+#include "cuda_runtime.h"
 
 using namespace Spinnaker;
 
-FLIRCamera::FLIRCamera(){
+FLIRCamera::FLIRCamera()
+{
     try
     {
         mWidth = 0;
@@ -29,14 +31,18 @@ FLIRCamera::FLIRCamera(){
         std::cout << "Error: " << e.what() << std::endl;
         return;
     }
+
+    mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
+    mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_OldestFirstOverwrite);
 }
 
 FLIRCamera::~FLIRCamera(){
-    mCam = nullptr;
+    stop();
+    close();
 
+    mCam = nullptr;
     // Clear camera list before releasing system
     mCamList.Clear();
-
     // Release system
     mSystem->ReleaseInstance();
 }
@@ -87,6 +93,8 @@ bool FLIRCamera::open(uint32_t devID){
         std::cout << "FPS: " << mFPS << std::endl;
     }
 
+    mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
+    mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
     // if(!mInputBuffer.allocate(mWidth, mHeight, mSurfaceFormat))
     //     return false;
 }
@@ -98,14 +106,43 @@ void FLIRCamera::close()
 
 bool FLIRCamera::start()
 {
+    if(mCam -> IsStreaming())
+        return true;
+    
+    size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
+    unsigned userBufferNum = 100;
+    for(int i=0; i<userBufferNum; i++)
+    {
+        void* hostBuffer;
+        cudaError_t error = cudaMallocManaged(&hostBuffer, bufferSize, cudaMemAttachHost);
+        if(error != cudaSuccess)
+        {
+            std::cout << "Failed to allocate image buffer: " << cudaGetErrorString(error) << std::endl;
+            return false;
+        }
+        buffers.push_back(hostBuffer);
+
+    }
+    
+    mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
     mCam->BeginAcquisition();
-    // image = cv::Mat(mHeight, mWidth, CV_8UC1);
+    std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
+    std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;
+
+    return true;
 }
 
-bool FLIRCamera::stop()
+void FLIRCamera::stop()
 {
-    mCam->EndAcquisition();
-    // image.release();
+    if(mCam->IsStreaming())
+    {
+        mCam->EndAcquisition();
+    }
+
+    for(void* buffer : buffers)
+    {
+        cudaFree(buffer);
+    }
 }
 
 ImagePtr FLIRCamera::read()
@@ -114,6 +151,8 @@ ImagePtr FLIRCamera::read()
 
     try
     {
+        std::cout << "Input buffer count: " << mCam->TLStream.StreamInputBufferCount.GetValue() << std::endl;
+        // std::cout << "Lost buffer count: " << mCam->TLStream.StreamLostFrameCount.GetValue() << std::endl;
         // Retrieve next received image
         pResultImage = mCam->GetNextImage();
 
@@ -140,7 +179,7 @@ ImagePtr FLIRCamera::read()
         throw std::runtime_error("Spinnaker Error: " + std::string(e.what()));
     }
 
-    return pResultImage;
+    return std::move(pResultImage);
 
 }
 
