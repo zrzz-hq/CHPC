@@ -9,22 +9,22 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     threadPerBlock = 256;
     blockPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
 
-    cudaError_t error = cudaMallocManaged(&phaseHostBuffer, N*sizeof(float), cudaMemAttachHost);
+    cudaError_t error = cudaMalloc(&phaseHostBuffer, N*sizeof(float));
     if(error != cudaSuccess)
     {
         throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
     }
 
-    // error = cudaMallocManaged(&cosineHostBuffer, N*sizeof(uint8_t), cudaMemAttachHost);
-    // if(error != cudaSuccess)
-    // {
-    //     throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
-    // }
+    error = cudaMalloc(&imageBuffer, N*sizeof(uint8_t));
+    if(error != cudaSuccess)
+    {
+        throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
+    }
 
     for(int i=0; i<5; i++)
     {
         float* buffer;
-        error = cudaMallocManaged(&buffer, N*sizeof(float));
+        error = cudaMalloc(&buffer, N*sizeof(float));
         if(error != cudaSuccess)
         {
             throw std::runtime_error("Failed to allocate image buffer: " + std::string(cudaGetErrorString(error)));
@@ -35,7 +35,7 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     for(int i=0; i<nPhaseBuffers; i++)
     {
         uint8_t* cosineBuffer;
-        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t), cudaMemAttachHost);
+        error = cudaMalloc(&cosineBuffer, N*sizeof(uint8_t));
         if(error != cudaSuccess)
         {
             throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
@@ -50,6 +50,7 @@ GPU::~GPU()
 {
     // cudaFree(cosineHostBuffer);
     cudaFree(phaseHostBuffer);
+    cudaFree(imageBuffer);
     while(buffers.size() > 0)
     {
         float* buffer = buffers.front();
@@ -71,12 +72,19 @@ std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
 {
     // buffer[4]->Release()
 
-    uint8_t* inDeviceBuffer = reinterpret_cast<uint8_t*>(newImage->GetData());
+    // uint8_t* inDeviceBuffer = reinterpret_cast<uint8_t*>(newImage->GetData());
+
+    cudaError_t error = cudaMemcpy(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice);
+    if(error != cudaSuccess)
+    {
+        std::cout << "Failed to copy the image to gpu: " << cudaGetErrorString(error) << std::endl;
+        return nullptr;
+    }
 
     float* outBuffer = buffers.back();
     buffers.pop_back();
 
-    convert_type<<<blockPerGrid,threadPerBlock>>>(inDeviceBuffer, outBuffer, N);
+    convert_type<<<blockPerGrid,threadPerBlock>>>(imageBuffer, outBuffer, N);
     cudaDeviceSynchronize();
 
     buffers.push_front(outBuffer);

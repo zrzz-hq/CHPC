@@ -32,6 +32,7 @@ private:
     int N;
 
     float* phaseHostBuffer;
+    uint8_t* imageBuffer;
 
     std::queue<uint8_t*> cosineBuffers;
     std::deque<float*> buffers;

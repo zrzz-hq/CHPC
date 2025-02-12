@@ -165,8 +165,19 @@ int main()
 
         if(imagePair.second != nullptr)
         {
-            cv::Mat phaseImage(HEIGHT,WIDTH,CV_8UC1,imagePair.second.get());
-            cv::imshow("phase", phaseImage);
+            cv::Mat phaseImage(HEIGHT,WIDTH,CV_8UC1,cv::Scalar(0));
+            size_t size = WIDTH * HEIGHT * sizeof(uint8_t);
+            void* dstPtr = phaseImage.data;
+            void* srcPtr = imagePair.second.get();
+            cudaError_t error = cudaMemcpy(dstPtr, srcPtr, size, cudaMemcpyDeviceToHost);
+            if(error != cudaSuccess)
+            {
+                std::cout << "Failed to copy memory: " << cudaGetErrorString(error) << std::endl;
+            }
+            else
+            {
+                cv::imshow("phase", phaseImage);
+            }
         }
 
         imagePair.first->Release();
