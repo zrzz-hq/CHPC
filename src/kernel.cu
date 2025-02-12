@@ -10,7 +10,7 @@ __global__ void convert_type(uint8_t *inp, float *outp, int N)
     }
 }
 
-__global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, float* cosine, int N) 
+__global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N) 
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < N) 
@@ -21,7 +21,7 @@ __global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float*
         float numerator = sqrt(fabs(4.0 * A * A - B * B));
         float pm = (A > 0) - (A < 0); // Sign function
         phase[idx] = atan2f(pm * numerator, denominator);
-        cosine[idx] = cos(phase[idx]);
+        cosine[idx] = __float2uint_rn(cos(phase[idx]) * 255);
     }
 }
 

@@ -1,13 +1,13 @@
 #include "GPU.h"
 #include <opencv2/opencv.hpp>
 
-GPU::GPU(int width, int height):
-    phaseHostBuffer(nullptr),
-    cosineHostBuffer(nullptr)
+GPU::GPU(int width, int height, size_t nPhaseBuffers):
+    phaseHostBuffer(nullptr)
 {
     eleCount = 0;
     N = width * height;
-    blockPerGrid = (N + 256 - 1) / 256;
+    threadPerBlock = 256;
+    blockPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
 
     cudaError_t error = cudaMallocManaged(&phaseHostBuffer, N*sizeof(float), cudaMemAttachHost);
     if(error != cudaSuccess)
@@ -15,11 +15,11 @@ GPU::GPU(int width, int height):
         throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
     }
 
-    error = cudaMallocManaged(&cosineHostBuffer, N*sizeof(float), cudaMemAttachHost);
-    if(error != cudaSuccess)
-    {
-        throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
-    }
+    // error = cudaMallocManaged(&cosineHostBuffer, N*sizeof(uint8_t), cudaMemAttachHost);
+    // if(error != cudaSuccess)
+    // {
+    //     throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
+    // }
 
     for(int i=0; i<5; i++)
     {
@@ -31,11 +31,24 @@ GPU::GPU(int width, int height):
         }
         buffers.push_back(buffer);
     }
+
+    for(int i=0; i<nPhaseBuffers; i++)
+    {
+        uint8_t* cosineBuffer;
+        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t), cudaMemAttachHost);
+        if(error != cudaSuccess)
+        {
+            throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
+        }
+        cosineBuffers.push(cosineBuffer);
+    }
+
+    pthread_mutex_init(&cosineBufferMutex, NULL);
 };
 
 GPU::~GPU()
 {
-    cudaFree(cosineHostBuffer);
+    // cudaFree(cosineHostBuffer);
     cudaFree(phaseHostBuffer);
     while(buffers.size() > 0)
     {
@@ -54,7 +67,7 @@ void GPU::getCudaVersion()
 
 }
 
-float* GPU::runNovak(Spinnaker::ImagePtr newImage)
+std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
 {
     // buffer[4]->Release()
 
@@ -63,7 +76,7 @@ float* GPU::runNovak(Spinnaker::ImagePtr newImage)
     float* outBuffer = buffers.back();
     buffers.pop_back();
 
-    convert_type<<<blockPerGrid,256>>>(inDeviceBuffer, outBuffer, N);
+    convert_type<<<blockPerGrid,threadPerBlock>>>(inDeviceBuffer, outBuffer, N);
     cudaDeviceSynchronize();
 
     buffers.push_front(outBuffer);
@@ -73,18 +86,40 @@ float* GPU::runNovak(Spinnaker::ImagePtr newImage)
         eleCount++;
         return nullptr;
     }
-
-    // newImage -> Release();
     
-    compute_phase<<<blockPerGrid,256>>>(buffers[0],
+    uint8_t* cosineBuffer;
+    pthread_mutex_lock(&cosineBufferMutex);
+    if(cosineBuffers.size() > 0)
+    {
+        cosineBuffer = cosineBuffers.front();
+        cosineBuffers.pop();
+    }
+    pthread_mutex_unlock(&cosineBufferMutex);
+
+    if(cosineBuffer == nullptr)
+        return nullptr;
+    
+    compute_phase<<<blockPerGrid,threadPerBlock>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
                                         buffers[4],
                                         phaseHostBuffer,
-                                        cosineHostBuffer,
+                                        cosineBuffer,
                                         N);
+    
     cudaDeviceSynchronize();
 
-    return cosineHostBuffer;
+    return std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
+}
+
+void GPU::phaseBufferDeleter(uint8_t* ptr)
+{
+    if(ptr != nullptr)
+    {
+        pthread_mutex_lock(&cosineBufferMutex);
+        cosineBuffers.push(ptr);
+        pthread_mutex_unlock(&cosineBufferMutex);
+    }
+    
 }

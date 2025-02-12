@@ -110,7 +110,7 @@ bool FLIRCamera::start()
         return true;
     
     size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
-    unsigned userBufferNum = 100;
+    unsigned userBufferNum = 50;
     for(int i=0; i<userBufferNum; i++)
     {
         void* hostBuffer;
