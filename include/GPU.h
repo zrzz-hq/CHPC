@@ -7,6 +7,8 @@
 #include "Spinnaker.h"
 #include <pthread.h>
 
+#include <boost/lockfree/queue.hpp>
+
 // #ifdef _cplusplus
 // extern "C" {
 // #endif
@@ -34,7 +36,11 @@ private:
     float* phaseHostBuffer;
     uint8_t* imageBuffer;
 
-    std::queue<uint8_t*> cosineBuffers;
+    cudaStream_t stream1;
+    cudaStream_t stream2;
+
+    boost::lockfree::queue<uint8_t*> cosineBuffers;
+    // std::queue<uint8_t*> cosineBuffers;
     std::deque<float*> buffers;
 
     void phaseBufferDeleter(uint8_t* ptr);

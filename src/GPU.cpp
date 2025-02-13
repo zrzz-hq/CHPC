@@ -2,7 +2,8 @@
 #include <opencv2/opencv.hpp>
 
 GPU::GPU(int width, int height, size_t nPhaseBuffers):
-    phaseHostBuffer(nullptr)
+    phaseHostBuffer(nullptr),
+    cosineBuffers(nPhaseBuffers)
 {
     eleCount = 0;
     N = width * height;
@@ -21,7 +22,7 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
         throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
     }
 
-    for(int i=0; i<5; i++)
+    for(int i=0; i<6; i++)
     {
         float* buffer;
         error = cudaMalloc(&buffer, N*sizeof(float));
@@ -43,7 +44,19 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
         cosineBuffers.push(cosineBuffer);
     }
 
-    pthread_mutex_init(&cosineBufferMutex, NULL);
+    error = cudaStreamCreate(&stream1);
+    if(error != cudaSuccess)
+    {
+        throw std::runtime_error("Failed to create cuda stream 1: "+ std::string(cudaGetErrorString(error)));
+    }
+    
+    error = cudaStreamCreate(&stream2);
+    if(error != cudaSuccess)
+    {
+        throw std::runtime_error("Failed to create cuda stream 2: "+ std::string(cudaGetErrorString(error)));
+    }
+
+    // pthread_mutex_init(&cosineBufferMutex, NULL);
 };
 
 GPU::~GPU()
@@ -57,6 +70,9 @@ GPU::~GPU()
         cudaFree(buffer);
         buffers.pop_front();
     }
+
+    cudaStreamDestroy(stream1);
+    cudaStreamDestroy(stream2);
 };
 
 void GPU::getCudaVersion()
@@ -70,44 +86,32 @@ void GPU::getCudaVersion()
 
 std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
 {
-    // buffer[4]->Release()
+    std::shared_ptr<uint8_t> phaseImage = nullptr;
+    float* newImageDev = nullptr;
+    uint8_t* cosineBuffer = nullptr;
 
-    // uint8_t* inDeviceBuffer = reinterpret_cast<uint8_t*>(newImage->GetData());
+    cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice, stream1);
 
-    cudaError_t error = cudaMemcpy(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice);
     if(error != cudaSuccess)
     {
         std::cout << "Failed to copy the image to gpu: " << cudaGetErrorString(error) << std::endl;
-        return nullptr;
+        goto ret;
     }
 
-    float* outBuffer = buffers.back();
-    buffers.pop_back();
+    newImageDev = buffers.back();
 
-    convert_type<<<blockPerGrid,threadPerBlock>>>(imageBuffer, outBuffer, N);
-    cudaDeviceSynchronize();
-
-    buffers.push_front(outBuffer);
+    convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(imageBuffer, newImageDev, N);
 
     if (eleCount < 5)
     {
         eleCount++;
-        return nullptr;
+        goto updateBuffers;
     }
-    
-    uint8_t* cosineBuffer;
-    pthread_mutex_lock(&cosineBufferMutex);
-    if(cosineBuffers.size() > 0)
-    {
-        cosineBuffer = cosineBuffers.front();
-        cosineBuffers.pop();
-    }
-    pthread_mutex_unlock(&cosineBufferMutex);
 
-    if(cosineBuffer == nullptr)
-        return nullptr;
+    if(!cosineBuffers.pop(cosineBuffer))
+        goto updateBuffers;
     
-    compute_phase<<<blockPerGrid,threadPerBlock>>>(buffers[0],
+    compute_phase<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
@@ -115,19 +119,21 @@ std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
                                         phaseHostBuffer,
                                         cosineBuffer,
                                         N);
-    
-    cudaDeviceSynchronize();
+    phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
 
-    return std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
+updateBuffers:    
+    buffers.pop_back();
+    buffers.push_front(newImageDev);
+ret:
+    cudaDeviceSynchronize();
+    return phaseImage;
 }
 
 void GPU::phaseBufferDeleter(uint8_t* ptr)
 {
-    if(ptr != nullptr)
+    if(ptr != nullptr && !cosineBuffers.push(ptr))
     {
-        pthread_mutex_lock(&cosineBufferMutex);
-        cosineBuffers.push(ptr);
-        pthread_mutex_unlock(&cosineBufferMutex);
+        cudaFree(ptr);
     }
     
 }

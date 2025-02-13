@@ -11,43 +11,29 @@
 
 #define WIDTH 800
 #define HEIGHT 600
-#define FRAMERATE 60.0
+#define FRAMERATE 80.0
 
 
 std::queue<Spinnaker::ImagePtr> imageQueue1;
 pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
 
+
 std::queue<std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
 
-// TODO: add a phase buffer pool in the GPU class.
-// std::queue<Spinnaker::ImagePtr> phaseQueue;
-// pthread_mutex_t phaseQueueMutex = PTHREAD_MUTEX_INITIALIZER;
-// pthread_cond_t phaseQueueCond = PTHREAD_COND_INITIALIZER;
-
 void gpuThreadCleanUp(void* arg)
 {
-    pthread_mutex_lock(&imageQueue2Mutex);
-
-    while(imageQueue2.size() > 0)
-        imageQueue2.pop();
-    
-    pthread_mutex_unlock(&imageQueue2Mutex);
-
-    pthread_mutex_unlock(&imageQueue1Mutex);
-
     std::cout << "gpu thread exited" << std::endl;
-
 }
 
 void* gpuThreadFunc(void* arg)
 {
     pthread_cleanup_push(gpuThreadCleanUp, NULL);
+    GPU* gpu = reinterpret_cast<GPU*>(arg);
 
-    GPU gpu(WIDTH,HEIGHT,50);
-    gpu.getCudaVersion();
+    gpu->getCudaVersion();
     while(1)
     {
         Spinnaker::ImagePtr imagePtr;
@@ -61,7 +47,7 @@ void* gpuThreadFunc(void* arg)
 
         pthread_mutex_unlock(&imageQueue1Mutex);
 
-        std::shared_ptr<uint8_t> cosine = gpu.runNovak(imagePtr);
+        std::shared_ptr<uint8_t> cosine = gpu->runNovak(imagePtr);
         // TODO: write the following code in another thread
         
         pthread_mutex_lock(&imageQueue2Mutex);
@@ -79,30 +65,27 @@ void* gpuThreadFunc(void* arg)
 
 void cameraThreadCleanUp(void* arg)
 {
+    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
 
-    pthread_mutex_lock(&imageQueue1Mutex);
-    
-    while(imageQueue1.size() > 0)
-        imageQueue1.pop();
-    
-    pthread_mutex_unlock(&imageQueue1Mutex);
+    cam->stop();
+    cam->close();
 
     std::cout << "camera thread exited" << std::endl;
 }
 
 void* cameraThreadFunc(void* arg)
 {
-    pthread_cleanup_push(cameraThreadCleanUp, NULL);
+    pthread_cleanup_push(cameraThreadCleanUp, arg);
+    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
 
-    FLIRCamera cam;
-    cam.open(0);
-    cam.setResolution(WIDTH,HEIGHT);
-    cam.setFPS(FRAMERATE);
+    cam->open(0);
+    cam->setResolution(WIDTH,HEIGHT);
+    cam->setFPS(FRAMERATE);
 
-    cam.start();
+    cam->start();
     while(1)
     {
-        Spinnaker::ImagePtr imagePtr = cam.read();
+        Spinnaker::ImagePtr imagePtr = cam->read();
 
         pthread_mutex_lock(&imageQueue1Mutex);
 
@@ -115,8 +98,8 @@ void* cameraThreadFunc(void* arg)
         
     }
 
-    cam.stop();
-    cam.close();
+    cam->stop();
+    cam->close();
 
     pthread_cleanup_pop(1);
     return 0;
@@ -124,15 +107,18 @@ void* cameraThreadFunc(void* arg)
 
 int main()
 {
+    GPU gpu(WIDTH,HEIGHT,50);
+    FLIRCamera cam;
+
     pthread_t gpuThread;
-    if(pthread_create(&gpuThread, NULL, gpuThreadFunc, NULL) == -1)
+    if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
     {
         std::cout << "Failed to create GPU thread" << std::endl;
         return 1;
     }
 
     pthread_t cameraThread;
-    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, NULL) == -1)
+    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, &cam) == -1)
     {
         std::cout << "Failed to create camera thread" << std::endl;
         return 1;
@@ -180,9 +166,6 @@ int main()
             }
         }
 
-        imagePair.first->Release();
-        imagePair.second.reset();
-
         if(cv::waitKey(1) == 'q')
             break;
     }
@@ -190,10 +173,16 @@ int main()
     cv::destroyAllWindows();
 
     pthread_cancel(gpuThread);
-    pthread_join(gpuThread, NULL);
-    
     pthread_cancel(cameraThread);
+
+    pthread_join(gpuThread, NULL);
     pthread_join(cameraThread, NULL);
+
+    while(imageQueue1.size() > 0)
+        imageQueue1.pop();
+
+    while(imageQueue2.size() > 0)
+        imageQueue2.pop();
 
     return 0;
 }
