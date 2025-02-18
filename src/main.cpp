@@ -9,17 +9,17 @@
 
 #include <pthread.h>
 
-#define WIDTH 800
-#define HEIGHT 600
-#define FRAMERATE 80.0
+#define WIDTH 1200
+#define HEIGHT 800
+#define FRAMERATE 30.0
 
 
-std::queue<Spinnaker::ImagePtr> imageQueue1;
+std::deque<Spinnaker::ImagePtr> imageQueue1;
 pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
 
 
-std::queue<std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>>> imageQueue2;
+std::deque<std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
 
@@ -42,8 +42,8 @@ void* gpuThreadFunc(void* arg)
         while(imageQueue1.size() == 0)
             pthread_cond_wait(&imageQueue1Cond, &imageQueue1Mutex);
 
-        imagePtr = imageQueue1.front();
-        imageQueue1.pop();
+        imagePtr = imageQueue1.back();
+        imageQueue1.clear();
 
         pthread_mutex_unlock(&imageQueue1Mutex);
 
@@ -52,7 +52,7 @@ void* gpuThreadFunc(void* arg)
         
         pthread_mutex_lock(&imageQueue2Mutex);
 
-        imageQueue2.emplace(std::make_pair(imagePtr,cosine));
+        imageQueue2.emplace_back(std::make_pair(imagePtr,cosine));
 
         pthread_cond_signal(&imageQueue2Cond);
         pthread_mutex_unlock(&imageQueue2Mutex);
@@ -89,7 +89,7 @@ void* cameraThreadFunc(void* arg)
 
         pthread_mutex_lock(&imageQueue1Mutex);
 
-        imageQueue1.push(imagePtr);
+        imageQueue1.push_back(imagePtr);
 
         pthread_cond_signal(&imageQueue1Cond);
         pthread_mutex_unlock(&imageQueue1Mutex);
@@ -135,8 +135,8 @@ int main()
         while(imageQueue2.size() == 0)
             pthread_cond_wait(&imageQueue2Cond, &imageQueue2Mutex);
 
-        imagePair = std::move(imageQueue2.front());
-        imageQueue2.pop();
+        imagePair = std::move(imageQueue2.back());
+        imageQueue2.clear();
 
         pthread_mutex_unlock(&imageQueue2Mutex);
        
@@ -178,11 +178,8 @@ int main()
     pthread_join(gpuThread, NULL);
     pthread_join(cameraThread, NULL);
 
-    while(imageQueue1.size() > 0)
-        imageQueue1.pop();
-
-    while(imageQueue2.size() > 0)
-        imageQueue2.pop();
+    imageQueue1.clear();
+    imageQueue2.clear();
 
     return 0;
 }

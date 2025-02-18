@@ -56,6 +56,14 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
         throw std::runtime_error("Failed to create cuda stream 2: "+ std::string(cudaGetErrorString(error)));
     }
 
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+
+    std::cout << "Number of SMs: " << prop.multiProcessorCount << std::endl;
+    std::cout << "Maximum threads per SM: " << prop.maxThreadsPerMultiProcessor << std::endl;
+    std::cout << "Maximum threads per block: " << prop.maxThreadsPerBlock << std::endl;
+    std::cout << "Maximum grid size: (" << prop.maxGridSize[0] << "," << prop.maxGridSize[1] << "," << prop.maxGridSize[2] << ")" << std::endl;
+
     // pthread_mutex_init(&cosineBufferMutex, NULL);
 };
 
