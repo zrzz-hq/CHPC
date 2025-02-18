@@ -36,7 +36,7 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     for(int i=0; i<nPhaseBuffers; i++)
     {
         uint8_t* cosineBuffer;
-        error = cudaMalloc(&cosineBuffer, N*sizeof(uint8_t));
+        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t), cudaMemAttachHost);
         if(error != cudaSuccess)
         {
             throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
@@ -98,17 +98,17 @@ std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
     float* newImageDev = nullptr;
     uint8_t* cosineBuffer = nullptr;
 
-    cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice, stream1);
+    // cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice, stream1);
 
-    if(error != cudaSuccess)
-    {
-        std::cout << "Failed to copy the image to gpu: " << cudaGetErrorString(error) << std::endl;
-        goto ret;
-    }
+    // if(error != cudaSuccess)
+    // {
+    //     std::cout << "Failed to copy the image to gpu: " << cudaGetErrorString(error) << std::endl;
+    //     goto ret;
+    // }
 
     newImageDev = buffers.back();
 
-    convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(imageBuffer, newImageDev, N);
+    convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
 
     if (eleCount < 5)
     {

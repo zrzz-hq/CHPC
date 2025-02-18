@@ -167,19 +167,22 @@ int main(int argc, char* argv[])
 
         if(imagePair.second != nullptr)
         {
-            cv::Mat phaseImage(height,width,CV_8UC1,cv::Scalar(0));
-            size_t size = width * height * sizeof(uint8_t);
-            void* dstPtr = phaseImage.data;
-            void* srcPtr = imagePair.second.get();
-            cudaError_t error = cudaMemcpy(dstPtr, srcPtr, size, cudaMemcpyDeviceToHost);
-            if(error != cudaSuccess)
-            {
-                std::cout << "Failed to copy memory: " << cudaGetErrorString(error) << std::endl;
-            }
-            else
-            {
-                cv::imshow("phase", phaseImage);
-            }
+            // cv::Mat phaseImage(height,width,CV_8UC1,cv::Scalar(0));
+            // size_t size = width * height * sizeof(uint8_t);
+            // void* dstPtr = phaseImage.data;
+            // void* srcPtr = imagePair.second.get();
+            // cudaError_t error = cudaMemcpy(dstPtr, srcPtr, size, cudaMemcpyDeviceToHost);
+            // if(error != cudaSuccess)
+            // {
+            //     std::cout << "Failed to copy memory: " << cudaGetErrorString(error) << std::endl;
+            // }
+            // else
+            // {
+            //     cv::imshow("phase", phaseImage);
+            // }
+
+            cv::Mat phaseImage(height, width, CV_8UC1, imagePair.second.get());
+            cv::imshow("phase", phaseImage);
         }
 
         if(cv::waitKey(1) == 'q')
