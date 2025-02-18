@@ -9,9 +9,9 @@
 
 #include <pthread.h>
 
-#define WIDTH 1200
-#define HEIGHT 800
-#define FRAMERATE 30.0
+#define WIDTH 800
+#define HEIGHT 600
+#define FRAMERATE 60.0
 
 
 std::deque<Spinnaker::ImagePtr> imageQueue1;
@@ -68,7 +68,7 @@ void cameraThreadCleanUp(void* arg)
     FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
 
     cam->stop();
-    cam->close();
+    // cam->close();
 
     std::cout << "camera thread exited" << std::endl;
 }
@@ -77,10 +77,6 @@ void* cameraThreadFunc(void* arg)
 {
     pthread_cleanup_push(cameraThreadCleanUp, arg);
     FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
-
-    cam->open(0);
-    cam->setResolution(WIDTH,HEIGHT);
-    cam->setFPS(FRAMERATE);
 
     cam->start();
     while(1)
@@ -99,16 +95,36 @@ void* cameraThreadFunc(void* arg)
     }
 
     cam->stop();
-    cam->close();
+    // cam->close();
 
     pthread_cleanup_pop(1);
     return 0;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    GPU gpu(WIDTH,HEIGHT,50);
+    int width = WIDTH;
+    int height = HEIGHT;
+    int frameRate = FRAMERATE;
+    switch(argc)
+    {
+        case 4:
+        frameRate = std::stoi(argv[3]);
+        case 3:
+        height = std::stoi(argv[2]);
+        case 2:
+        width = std::stoi(argv[1]);
+        break;
+        default:
+        break;
+    }
+    
+
+    GPU gpu(width,height,50);
     FLIRCamera cam;
+    cam.open(0);
+    cam.setResolution(width,height);
+    cam.setFPS(frameRate);
 
     pthread_t gpuThread;
     if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
@@ -151,8 +167,8 @@ int main()
 
         if(imagePair.second != nullptr)
         {
-            cv::Mat phaseImage(HEIGHT,WIDTH,CV_8UC1,cv::Scalar(0));
-            size_t size = WIDTH * HEIGHT * sizeof(uint8_t);
+            cv::Mat phaseImage(height,width,CV_8UC1,cv::Scalar(0));
+            size_t size = width * height * sizeof(uint8_t);
             void* dstPtr = phaseImage.data;
             void* srcPtr = imagePair.second.get();
             cudaError_t error = cudaMemcpy(dstPtr, srcPtr, size, cudaMemcpyDeviceToHost);
@@ -180,6 +196,8 @@ int main()
 
     imageQueue1.clear();
     imageQueue2.clear();
+
+    cam.close();
 
     return 0;
 }

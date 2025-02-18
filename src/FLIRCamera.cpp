@@ -78,7 +78,7 @@ bool FLIRCamera::open(uint32_t devID){
         mHeight =  ptrInt->GetMax();
     }
 
-    std::cout << "Width: " << mWidth << " Height: " << mHeight << std::endl; 
+    std::cout << "Maximum width: " << mWidth << "Maximum height: " << mHeight << std::endl; 
 
     CBooleanPtr ptrAcquisitionFrameRateEnable = nodeMap.GetNode("AcquisitionFrameRateEnable");
     if (IsAvailable(ptrAcquisitionFrameRateEnable) && IsWritable(ptrAcquisitionFrameRateEnable))
