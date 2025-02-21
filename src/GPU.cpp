@@ -1,5 +1,4 @@
 #include "GPU.h"
-#include <opencv2/opencv.hpp>
 
 GPU::GPU(int width, int height, size_t nPhaseBuffers):
     phaseHostBuffer(nullptr),

@@ -4,10 +4,13 @@
 #include <chrono>
 #include <queue>
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
-
 #include <pthread.h>
+
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
+#include <GL/gl.h>
+#include <GL/glx.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -48,7 +51,6 @@ void* gpuThreadFunc(void* arg)
         pthread_mutex_unlock(&imageQueue1Mutex);
 
         std::shared_ptr<uint8_t> cosine = gpu->runNovak(imagePtr);
-        // TODO: write the following code in another thread
         
         pthread_mutex_lock(&imageQueue2Mutex);
 
@@ -68,7 +70,6 @@ void cameraThreadCleanUp(void* arg)
     FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
 
     cam->stop();
-    // cam->close();
 
     std::cout << "camera thread exited" << std::endl;
 }
@@ -95,7 +96,6 @@ void* cameraThreadFunc(void* arg)
     }
 
     cam->stop();
-    // cam->close();
 
     pthread_cleanup_pop(1);
     return 0;
@@ -140,11 +140,80 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // std::cout << "Opencv version " << cv::getVersionMajor() << std::endl;
+    Display * display = XOpenDisplay(NULL);
+    if (!display)
+    {
+        std::cout << "Failed to open X display" << std::endl;
+        return -1;
+    }
+
+    int screen = DefaultScreen(display);
+    Window root = RootWindow(display, screen);
+    GLint glAttribs[] = {GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None};
+    XVisualInfo* vi = glXChooseVisual(display, screen, glAttribs);
+    if (!vi)
+    {
+        std::cout << "No suitable OpenGL visual found" << std::endl;
+        return -1;
+    }
+
+    Colormap cmap = XCreateColormap(display, root, vi->visual, AllocNone);
     
+    XSetWindowAttributes swa;
+    swa.colormap = cmap;
+    swa.event_mask = ExposureMask | KeyPressMask;
+
+    Window frame = XCreateWindow(display, root, 0, 0, width, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
+    // XSetWindowColormap(display, frame, cmap);
+    XStoreName(display, frame, "frame");
+    XMapWindow(display, frame);
+
+    Window phase = XCreateWindow(display, root, 0, 0, width, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
+    XStoreName(display, phase, "phase");
+    XMapWindow(display, phase);
+
+    Atom wmDelete = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    XSetWMProtocols(display, frame, &wmDelete, 1);
+    XSetWMProtocols(display, phase, &wmDelete, 1);
+
+    GLXContext glc = glXCreateContext(display, vi, NULL, GL_TRUE);
+    glXMakeCurrent(display, frame, glc);
+
+    GLuint frameTexture;
+    glEnable(GL_TEXTURE_2D);
+    glGenTextures(1, &frameTexture);
+    glBindTexture(GL_TEXTURE_2D, frameTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+
+    glXMakeCurrent(display, phase, glc);
+    GLuint phaseTexture;
+    glEnable(GL_TEXTURE_2D);
+    glGenTextures(1, &phaseTexture);
+    glBindTexture(GL_TEXTURE_2D, phaseTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+
+    XEvent event;
     auto last = std::chrono::system_clock::now();
     while(1)
     {
+        if(XPending(display) > 0)
+        {
+            XNextEvent(display, &event);
+
+            if(event.type == ClientMessage)
+            {
+                if((Atom)event.xclient.data.l[0] == wmDelete)
+                    break;
+            }
+
+        }
+        
         std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>> imagePair;
 
         pthread_mutex_lock(&imageQueue2Mutex);
@@ -155,41 +224,39 @@ int main(int argc, char* argv[])
         imageQueue2.clear();
 
         pthread_mutex_unlock(&imageQueue2Mutex);
-       
-        cv::Mat image(imagePair.first->GetHeight(),imagePair.first->GetWidth(),CV_8UC1, imagePair.first->GetData());
 
         auto now = std::chrono::system_clock::now();
         int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
         last = now;
 
-        cv::putText(image, std::to_string(1000.0/duration), cv::Point(10,30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0,255,0), 2);
-        cv::imshow("frame",image);
+        glXMakeCurrent(display, frame, glc);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBindTexture(GL_TEXTURE_2D, frameTexture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.first->GetData());
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+        glEnd();
+        glXSwapBuffers(display, frame);
 
         if(imagePair.second != nullptr)
         {
-            // cv::Mat phaseImage(height,width,CV_8UC1,cv::Scalar(0));
-            // size_t size = width * height * sizeof(uint8_t);
-            // void* dstPtr = phaseImage.data;
-            // void* srcPtr = imagePair.second.get();
-            // cudaError_t error = cudaMemcpy(dstPtr, srcPtr, size, cudaMemcpyDeviceToHost);
-            // if(error != cudaSuccess)
-            // {
-            //     std::cout << "Failed to copy memory: " << cudaGetErrorString(error) << std::endl;
-            // }
-            // else
-            // {
-            //     cv::imshow("phase", phaseImage);
-            // }
-
-            cv::Mat phaseImage(height, width, CV_8UC1, imagePair.second.get());
-            cv::imshow("phase", phaseImage);
+            glXMakeCurrent(display, phase, glc);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glBindTexture(GL_TEXTURE_2D, phaseTexture);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.second.get());
+            glBegin(GL_QUADS);
+            glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+            glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+            glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+            glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+            glEnd();
+            glXSwapBuffers(display, phase);
         }
 
-        if(cv::waitKey(1) == 'q')
-            break;
     }
-
-    cv::destroyAllWindows();
 
     pthread_cancel(gpuThread);
     pthread_cancel(cameraThread);
@@ -201,6 +268,11 @@ int main(int argc, char* argv[])
     imageQueue2.clear();
 
     cam.close();
+
+    glXDestroyContext(display, glc);
+    XDestroyWindow(display, phase);
+    XDestroyWindow(display, frame);
+    XCloseDisplay(display);
 
     return 0;
 }
