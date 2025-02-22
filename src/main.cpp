@@ -11,6 +11,7 @@
 
 #include <GL/gl.h>
 #include <GL/glx.h>
+#include <GLFW/glfw3.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -37,6 +38,7 @@ void* gpuThreadFunc(void* arg)
     GPU* gpu = reinterpret_cast<GPU*>(arg);
 
     gpu->getCudaVersion();
+    auto last = std::chrono::system_clock::now();
     while(1)
     {
         Spinnaker::ImagePtr imagePtr;
@@ -60,6 +62,11 @@ void* gpuThreadFunc(void* arg)
         pthread_mutex_unlock(&imageQueue2Mutex);
 
         pthread_testcancel();
+
+        auto now = std::chrono::system_clock::now();
+        int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        // std::cout << "Frame rate: " << 1000.0 / duration << std::endl;
+        last = now;
     }
     pthread_cleanup_pop(1);
     return 0;
@@ -118,7 +125,12 @@ int main(int argc, char* argv[])
         default:
         break;
     }
-    
+
+    if(!glfwInit())
+    {
+        std::cout << "Failed to init glfw library" << std::endl;
+        return -1;
+    }
 
     GPU gpu(width,height,50);
     FLIRCamera cam;
@@ -147,32 +159,14 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    int screen = DefaultScreen(display);
-    Window root = RootWindow(display, screen);
-    GLint glAttribs[] = {GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None};
-    XVisualInfo* vi = glXChooseVisual(display, screen, glAttribs);
-    if (!vi)
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+    GLFWwindow* frame = glfwCreateWindow(width * 2, height, "frame", NULL, NULL);
+    glfwMakeContextCurrent(frame);
+    if(!frame)
     {
-        std::cout << "No suitable OpenGL visual found" << std::endl;
-        return -1;
+        std::cout << "Failed to create the main window" << std::endl;
     }
-
-    Colormap cmap = XCreateColormap(display, root, vi->visual, AllocNone);
-    
-    XSetWindowAttributes swa;
-    swa.colormap = cmap;
-    swa.event_mask = ExposureMask | KeyPressMask;
-
-    Window frame = XCreateWindow(display, root, 0, 0, width*2, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
-    // XSetWindowColormap(display, frame, cmap);
-    XStoreName(display, frame, "frame");
-    XMapWindow(display, frame);
-
-    Atom wmDelete = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(display, frame, &wmDelete, 1);
-
-    GLXContext glc = glXCreateContext(display, vi, NULL, GL_TRUE);
-    glXMakeCurrent(display, frame, glc);
 
     GLuint frameTexture;
     glEnable(GL_TEXTURE_2D);
@@ -192,21 +186,10 @@ int main(int argc, char* argv[])
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
 
-    XEvent event;
     auto last = std::chrono::system_clock::now();
-    while(1)
+    while(!glfwWindowShouldClose(frame))
     {
-        if(XPending(display) > 0)
-        {
-            XNextEvent(display, &event);
-
-            if(event.type == ClientMessage)
-            {
-                if((Atom)event.xclient.data.l[0] == wmDelete)
-                    break;
-            }
-
-        }
+        glfwPollEvents();
         
         std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>> imagePair;
 
@@ -219,7 +202,6 @@ int main(int argc, char* argv[])
 
         pthread_mutex_unlock(&imageQueue2Mutex);
 
-        glXMakeCurrent(display, frame, glc);
         glBindTexture(GL_TEXTURE_2D, frameTexture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.first->GetData());
         glBegin(GL_QUADS);
@@ -240,12 +222,12 @@ int main(int argc, char* argv[])
             glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
             glEnd();
         }
-        glXSwapBuffers(display, frame);
+        glfwSwapBuffers(frame);
         
 
         auto now = std::chrono::system_clock::now();
         int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-        std::cout << "Frame rate: " << 1000.0 / duration << std::endl;
+        // std::cout << "Frame rate: " << 1000.0 / duration << std::endl;
         last = now;
 
     }
@@ -261,9 +243,8 @@ int main(int argc, char* argv[])
 
     cam.close();
 
-    glXDestroyContext(display, glc);
-    XDestroyWindow(display, frame);
-    XCloseDisplay(display);
+    glfwDestroyWindow(frame);
+    glfwTerminate();
 
     return 0;
 }

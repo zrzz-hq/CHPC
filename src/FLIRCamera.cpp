@@ -78,7 +78,7 @@ bool FLIRCamera::open(uint32_t devID){
         mHeight =  ptrInt->GetMax();
     }
 
-    std::cout << "Maximum width: " << mWidth << "Maximum height: " << mHeight << std::endl; 
+    std::cout << "Maximum width: " << mWidth << " Maximum height: " << mHeight << std::endl; 
 
     CBooleanPtr ptrAcquisitionFrameRateEnable = nodeMap.GetNode("AcquisitionFrameRateEnable");
     if (IsAvailable(ptrAcquisitionFrameRateEnable) && IsWritable(ptrAcquisitionFrameRateEnable))
@@ -274,7 +274,7 @@ bool FLIRCamera::setResolution(int width, int height)
         {
             mHeight =  ptrInt->GetValue();
         }
-        std::cout << "Width: " << mWidth << "Height: " << mHeight << std::endl;
+        std::cout << "Width: " << mWidth << " Height: " << mHeight << std::endl;
         return true;
     }
     catch (Spinnaker::Exception& e)
