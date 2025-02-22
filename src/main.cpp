@@ -163,18 +163,13 @@ int main(int argc, char* argv[])
     swa.colormap = cmap;
     swa.event_mask = ExposureMask | KeyPressMask;
 
-    Window frame = XCreateWindow(display, root, 0, 0, width, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
+    Window frame = XCreateWindow(display, root, 0, 0, width*2, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
     // XSetWindowColormap(display, frame, cmap);
     XStoreName(display, frame, "frame");
     XMapWindow(display, frame);
 
-    Window phase = XCreateWindow(display, root, 0, 0, width, height, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
-    XStoreName(display, phase, "phase");
-    XMapWindow(display, phase);
-
     Atom wmDelete = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display, frame, &wmDelete, 1);
-    XSetWMProtocols(display, phase, &wmDelete, 1);
 
     GLXContext glc = glXCreateContext(display, vi, NULL, GL_TRUE);
     glXMakeCurrent(display, frame, glc);
@@ -188,7 +183,6 @@ int main(int argc, char* argv[])
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
 
-    glXMakeCurrent(display, phase, glc);
     GLuint phaseTexture;
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &phaseTexture);
@@ -225,36 +219,34 @@ int main(int argc, char* argv[])
 
         pthread_mutex_unlock(&imageQueue2Mutex);
 
-        auto now = std::chrono::system_clock::now();
-        int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-        last = now;
-
         glXMakeCurrent(display, frame, glc);
-        glClear(GL_COLOR_BUFFER_BIT);
         glBindTexture(GL_TEXTURE_2D, frameTexture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.first->GetData());
         glBegin(GL_QUADS);
         glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+        glTexCoord2f(1.0, 0.0); glVertex2f(0.0, -1.0);
+        glTexCoord2f(1.0, 1.0); glVertex2f(0.0, 1.0);
         glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
         glEnd();
-        glXSwapBuffers(display, frame);
 
         if(imagePair.second != nullptr)
         {
-            glXMakeCurrent(display, phase, glc);
-            glClear(GL_COLOR_BUFFER_BIT);
             glBindTexture(GL_TEXTURE_2D, phaseTexture);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.second.get());
             glBegin(GL_QUADS);
-            glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+            glTexCoord2f(0.0, 0.0); glVertex2f(0.0, -1.0);
             glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
             glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-            glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+            glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
             glEnd();
-            glXSwapBuffers(display, phase);
         }
+        glXSwapBuffers(display, frame);
+        
+
+        auto now = std::chrono::system_clock::now();
+        int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        std::cout << "Frame rate: " << 1000.0 / duration << std::endl;
+        last = now;
 
     }
 
@@ -270,7 +262,6 @@ int main(int argc, char* argv[])
     cam.close();
 
     glXDestroyContext(display, glc);
-    XDestroyWindow(display, phase);
     XDestroyWindow(display, frame);
     XCloseDisplay(display);
 
