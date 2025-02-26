@@ -32,6 +32,7 @@ FLIRCamera::FLIRCamera()
         return;
     }
 
+    // mCam->TriggerSource.SetValue(Spinnaker::TriggerSourceEnums::TriggerSource_Software);
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_OldestFirstOverwrite);
 }
@@ -54,7 +55,8 @@ LibraryVersion version = system->GetLibraryVersion();
 std::cout << version.major << std::endl;
 }
 
-bool FLIRCamera::open(uint32_t devID){
+bool FLIRCamera::open(uint32_t devID)
+{
 
  if(mCam == nullptr)
         return false;
@@ -93,6 +95,7 @@ bool FLIRCamera::open(uint32_t devID){
         std::cout << "FPS: " << mFPS << std::endl;
     }
 
+    mCam->TriggerSource.SetValue(Spinnaker::TriggerSourceEnums::TriggerSource_Software);
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
     // if(!mInputBuffer.allocate(mWidth, mHeight, mSurfaceFormat))
@@ -143,6 +146,19 @@ void FLIRCamera::stop()
     {
         cudaFree(buffer);
     }
+}
+
+bool FLIRCamera::enableTrigger(Spinnaker::TriggerSourceEnums line)
+{
+    mCam->TriggerMode.SetValue(TriggerMode_On);
+    mCam->TriggerSource.SetValue(line);
+    mCam->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+    return mCam->TriggerMode.GetValue() == TriggerMode_On;
+}
+
+void FLIRCamera::disableTrigger()
+{
+    mCam->TriggerMode.SetValue(TriggerMode_Off);
 }
 
 ImagePtr FLIRCamera::read()

@@ -13,6 +13,8 @@
 #include <GL/glx.h>
 #include <GLFW/glfw3.h>
 
+#include <opencv2/opencv.hpp>
+
 #define WIDTH 800
 #define HEIGHT 600
 #define FRAMERATE 60.0
@@ -108,13 +110,26 @@ void* cameraThreadFunc(void* arg)
     return 0;
 }
 
+// void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+// {
+//     int* userData = reinterpret_cast<int*>(glfwGetWindowUserPointer(window));
+//     if(action == GLFW_PRESS)
+//     {
+//         *userData = key;
+//     }
+
+// }
+
 int main(int argc, char* argv[])
 {
     int width = WIDTH;
     int height = HEIGHT;
     int frameRate = FRAMERATE;
+    int triggerLine = -1;
     switch(argc)
     {
+        case 5:
+        triggerLine = std::stoi(argv[4]);
         case 4:
         frameRate = std::stoi(argv[3]);
         case 3:
@@ -138,6 +153,11 @@ int main(int argc, char* argv[])
     cam.setResolution(width,height);
     cam.setFPS(frameRate);
 
+    if(triggerLine != -1)
+    {
+        cam.enableTrigger(TriggerSource_Line0);
+    }
+
     pthread_t gpuThread;
     if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
     {
@@ -152,16 +172,11 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    Display * display = XOpenDisplay(NULL);
-    if (!display)
-    {
-        std::cout << "Failed to open X display" << std::endl;
-        return -1;
-    }
-
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
+    // int key = GLFW_KEY_UNKNOWN;
     GLFWwindow* frame = glfwCreateWindow(width * 2, height, "frame", NULL, NULL);
+    // glfwSetWindowUserPointer(frame, &key);
     glfwMakeContextCurrent(frame);
     if(!frame)
     {
@@ -187,6 +202,9 @@ int main(int argc, char* argv[])
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
 
     auto last = std::chrono::system_clock::now();
+    bool spacePressed = false;
+    int imageCount = 0;
+
     while(!glfwWindowShouldClose(frame))
     {
         glfwPollEvents();
@@ -221,8 +239,27 @@ int main(int argc, char* argv[])
             glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
             glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
             glEnd();
+
+            cv::Mat();
         }
         glfwSwapBuffers(frame);
+
+        
+        int state = glfwGetKey(frame, GLFW_KEY_SPACE);
+        if(state == GLFW_PRESS && !spacePressed)
+        {
+            spacePressed = true;
+        }
+        if(state == GLFW_RELEASE && spacePressed)
+        {
+            spacePressed = false;
+            imageCount ++;
+            if(!cv::imwrite("/home/nvidia/images/" + std::to_string(imageCount) + ".png", cv::Mat(height, width, CV_8UC1, imagePair.second.get())))
+                std::cout << "Failed to save image" << std::endl;
+            else
+                std::cout << "Image saved" << std::endl;
+            
+        }
         
 
         auto now = std::chrono::system_clock::now();
