@@ -15,8 +15,8 @@
 
 #include <opencv2/opencv.hpp>
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 720
+#define HEIGHT 540
 #define FRAMERATE 60.0
 
 
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 
     if(triggerLine != -1)
     {
-        cam.enableTrigger(TriggerSource_Line0);
+        cam.enableTrigger(TriggerSource_Line3);
     }
 
     pthread_t gpuThread;

@@ -95,7 +95,20 @@ bool FLIRCamera::open(uint32_t devID)
         std::cout << "FPS: " << mFPS << std::endl;
     }
 
-    mCam->TriggerSource.SetValue(Spinnaker::TriggerSourceEnums::TriggerSource_Software);
+    CEnumerationPtr exposureAuto = nodeMap.GetNode("ExposureAuto");
+    if(IsAvailable(exposureAuto) && IsWritable(exposureAuto))
+    {
+        CEnumEntryPtr exposureAutoOff =exposureAuto->GetEntryByName("Off");
+        exposureAuto->SetIntValue(exposureAutoOff->GetValue());
+    }
+
+    CFloatPtr exposureTime = nodeMap.GetNode("ExposureTime");
+    if(IsAvailable(exposureTime) && IsWritable(exposureTime))
+    {
+        exposureTime->SetValue(4);
+        std::cout << "Exposure time: " << exposureTime->GetValue() << std::endl; 
+    }
+
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
     // if(!mInputBuffer.allocate(mWidth, mHeight, mSurfaceFormat))
@@ -150,9 +163,10 @@ void FLIRCamera::stop()
 
 bool FLIRCamera::enableTrigger(Spinnaker::TriggerSourceEnums line)
 {
-    mCam->TriggerMode.SetValue(TriggerMode_On);
+    mCam->TriggerSelector.SetValue(TriggerSelector_FrameBurstStart);
     mCam->TriggerSource.SetValue(line);
     mCam->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+    mCam->TriggerMode.SetValue(TriggerMode_On);
     return mCam->TriggerMode.GetValue() == TriggerMode_On;
 }
 
