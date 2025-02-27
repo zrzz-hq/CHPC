@@ -9,8 +9,8 @@
 
 #include <pthread.h>
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 720
+#define HEIGHT 540
 #define FRAMERATE 60.0
 
 
@@ -106,6 +106,7 @@ int main(int argc, char* argv[])
     int width = WIDTH;
     int height = HEIGHT;
     int frameRate = FRAMERATE;
+    int triggerLine = 1;
     switch(argc)
     {
         case 4:
@@ -125,6 +126,11 @@ int main(int argc, char* argv[])
     cam.open(0);
     cam.setResolution(width,height);
     cam.setFPS(frameRate);
+
+    if(triggerLine != -1)
+    {
+        cam.enableTrigger(TriggerSource_Line3);
+    }
 
     pthread_t gpuThread;
     if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
