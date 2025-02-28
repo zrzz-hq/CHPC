@@ -3,7 +3,7 @@
 #include <memory>
 #include <chrono>
 #include <queue>
-
+#include <fstream>
 #include <pthread.h>
 
 #include <X11/Xlib.h>
@@ -25,7 +25,7 @@ pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
 
 
-std::deque<std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>>> imageQueue2;
+std::deque<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
 
@@ -54,11 +54,11 @@ void* gpuThreadFunc(void* arg)
 
         pthread_mutex_unlock(&imageQueue1Mutex);
 
-        std::shared_ptr<uint8_t> cosine = gpu->runNovak(imagePtr);
+        std::pair<std::shared_ptr<uint8_t>, std::shared_ptr<float>> pair = gpu->runNovak(imagePtr);
         
         pthread_mutex_lock(&imageQueue2Mutex);
 
-        imageQueue2.emplace_back(std::make_pair(imagePtr,cosine));
+        imageQueue2.emplace_back(imagePtr, pair.first, pair.second);
 
         pthread_cond_signal(&imageQueue2Cond);
         pthread_mutex_unlock(&imageQueue2Mutex);
@@ -119,6 +119,27 @@ void* cameraThreadFunc(void* arg)
 //     }
 
 // }
+
+void writeMatToCSV(const cv::Mat mat, const std::string& fileName){
+    std::ofstream file(fileName);
+
+    if (!file.is_open()){
+        std::cout << "Error: Could not write phase map to csv file\n";
+        return;
+    }
+
+    for (int i = 0; i < mat.rows; i++){
+        for (int j = 0; j < mat.cols; j++){
+            file << mat.at<float>(i, j);
+            if (j < mat.cols-1)
+                file << ',';
+        }
+        file << '\n';
+    }
+    file.close();
+    std::cout << "Phase map saved to " << fileName << std::endl; 
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -199,7 +220,7 @@ int main(int argc, char* argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     auto last = std::chrono::system_clock::now();
     bool spacePressed = false;
@@ -209,19 +230,19 @@ int main(int argc, char* argv[])
     {
         glfwPollEvents();
         
-        std::pair<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>> imagePair;
+        std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
 
         pthread_mutex_lock(&imageQueue2Mutex);
         while(imageQueue2.size() == 0)
             pthread_cond_wait(&imageQueue2Cond, &imageQueue2Mutex);
 
-        imagePair = std::move(imageQueue2.back());
+        tuple = std::move(imageQueue2.back());
         imageQueue2.clear();
 
         pthread_mutex_unlock(&imageQueue2Mutex);
 
         glBindTexture(GL_TEXTURE_2D, frameTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.first->GetData());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, std::get<0>(tuple)->GetData());
         glBegin(GL_QUADS);
         glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
         glTexCoord2f(1.0, 0.0); glVertex2f(0.0, -1.0);
@@ -229,10 +250,10 @@ int main(int argc, char* argv[])
         glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
         glEnd();
 
-        if(imagePair.second != nullptr)
+        if(std::get<1>(tuple) != nullptr)
         {
             glBindTexture(GL_TEXTURE_2D, phaseTexture);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, imagePair.second.get());
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, std::get<1>(tuple).get());
             glBegin(GL_QUADS);
             glTexCoord2f(0.0, 0.0); glVertex2f(0.0, -1.0);
             glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
@@ -254,11 +275,19 @@ int main(int argc, char* argv[])
         {
             spacePressed = false;
             imageCount ++;
-            if(!cv::imwrite("/home/nvidia/images/" + std::to_string(imageCount) + ".png", cv::Mat(height, width, CV_8UC1, imagePair.second.get())))
-                std::cout << "Failed to save image" << std::endl;
-            else
-                std::cout << "Image saved" << std::endl;
-            
+            // if(!cv::imwrite("/home/nvidia/images/" + std::to_string(imageCount) + ".png", cv::Mat(height, width, CV_32F, std::get<2>(tuple).get())))
+            //     std::cout << "Failed to save image" << std::endl;
+            // else
+            //     std::cout << "Image saved" << std::endl;
+            std::shared_ptr<float> phaseMap = std::get<2>(tuple);
+            if(phaseMap != nullptr)
+            {
+                cv::Mat phaseMat(height, width, CV_32F);
+                if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
+                    std::cout << "Failed to copy data" << std::endl;
+                else
+                    writeMatToCSV(phaseMat, "/home/nvidia/images/" + std::to_string(imageCount) + ".csv");
+            }
         }
         
 

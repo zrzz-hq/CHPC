@@ -1,18 +1,25 @@
 #include "GPU.h"
 
 GPU::GPU(int width, int height, size_t nPhaseBuffers):
-    phaseHostBuffer(nullptr),
-    cosineBuffers(nPhaseBuffers)
+    cosineBuffers(nPhaseBuffers),
+    phaseBuffers(nPhaseBuffers)
 {
     eleCount = 0;
     N = width * height;
     threadPerBlock = 256;
     blockPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
 
-    cudaError_t error = cudaMalloc(&phaseHostBuffer, N*sizeof(float));
-    if(error != cudaSuccess)
+    cudaError_t error;
+
+    for(int i=0; i<nPhaseBuffers; i++)
     {
-        throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
+        float* phaseBuffer;
+        error = cudaMalloc(&phaseBuffer, N*sizeof(float));
+        if(error != cudaSuccess)
+        {
+            throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
+        }
+        phaseBuffers.push(phaseBuffer);
     }
 
     error = cudaMalloc(&imageBuffer, N*sizeof(uint8_t));
@@ -35,7 +42,7 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     for(int i=0; i<nPhaseBuffers; i++)
     {
         uint8_t* cosineBuffer;
-        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t), cudaMemAttachHost);
+        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t)*3, cudaMemAttachHost);
         if(error != cudaSuccess)
         {
             throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
@@ -69,7 +76,6 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
 GPU::~GPU()
 {
     // cudaFree(cosineHostBuffer);
-    cudaFree(phaseHostBuffer);
     cudaFree(imageBuffer);
     while(buffers.size() > 0)
     {
@@ -91,11 +97,13 @@ void GPU::getCudaVersion()
 
 }
 
-std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
+std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnaker::ImagePtr newImage)
 {
     std::shared_ptr<uint8_t> phaseImage = nullptr;
+    std::shared_ptr<float> phaseMap = nullptr;
     float* newImageDev = nullptr;
     uint8_t* cosineBuffer = nullptr;
+    float* phaseBuffer = nullptr;
 
     // cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice, stream1);
 
@@ -115,30 +123,42 @@ std::shared_ptr<uint8_t> GPU::runNovak(Spinnaker::ImagePtr newImage)
         goto updateBuffers;
     }
 
-    if(!cosineBuffers.pop(cosineBuffer))
+
+    if(!cosineBuffers.pop(cosineBuffer) || !phaseBuffers.pop(phaseBuffer))
         goto updateBuffers;
+    
     
     compute_phase<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
                                         buffers[4],
-                                        phaseHostBuffer,
+                                        phaseBuffer,
                                         cosineBuffer,
                                         N);
-    phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
+    phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
+    phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
 
 updateBuffers:    
     buffers.pop_back();
     buffers.push_front(newImageDev);
 ret:
     cudaDeviceSynchronize();
-    return phaseImage;
+    return {phaseImage, phaseMap};
 }
 
-void GPU::phaseBufferDeleter(uint8_t* ptr)
+void GPU::cosineBufferDeleter(uint8_t* ptr)
 {
     if(ptr != nullptr && !cosineBuffers.push(ptr))
+    {
+        cudaFree(ptr);
+    }
+    
+}
+
+void GPU::phaseBufferDeleter(float* ptr)
+{
+    if(ptr != nullptr && !phaseBuffers.push(ptr))
     {
         cudaFree(ptr);
     }

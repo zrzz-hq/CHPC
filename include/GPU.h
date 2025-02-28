@@ -4,6 +4,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <utility>
 #include "Spinnaker.h"
 #include <pthread.h>
 
@@ -24,7 +25,7 @@ public:
     GPU(int width, int height, size_t nPhaseBuffers);
     ~GPU();
     void getCudaVersion();
-    std::shared_ptr<uint8_t> runNovak(Spinnaker::ImagePtr image);
+    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>>  runNovak(Spinnaker::ImagePtr image);
 
 private:
 
@@ -33,17 +34,17 @@ private:
     int threadPerBlock;
     int N;
 
-    float* phaseHostBuffer;
     uint8_t* imageBuffer;
 
     cudaStream_t stream1;
     cudaStream_t stream2;
 
     boost::lockfree::queue<uint8_t*> cosineBuffers;
-    // std::queue<uint8_t*> cosineBuffers;
+    boost::lockfree::queue<float*> phaseBuffers;
     std::deque<float*> buffers;
 
-    void phaseBufferDeleter(uint8_t* ptr);
-    pthread_mutex_t cosineBufferMutex;
+    void phaseBufferDeleter(float* ptr);
+    void cosineBufferDeleter(uint8_t* ptr);
+    // pthread_mutex_t cosineBufferMutex;
 
 };

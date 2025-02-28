@@ -21,9 +21,19 @@ __global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float*
         float numerator = sqrt(fabs(4.0 * A * A - B * B));
         float pm = (A > 0) - (A < 0); // Sign function
         phase[idx] = atan2f(pm * numerator, denominator);
-        cosine[idx] = __float2uint_rn(cos(phase[idx]) * 255);
+
+        float norm = fminf(fmaxf((phase[idx] + M_PI) / (2.0 * M_PI), 0.0f), 1.0f);
+        // float norm = 1;
+
+        float r = fminf(fmaxf(1.5f - fabsf(4.0f * norm - 3.0f), 0.0f), 1.0f);
+        float g = fminf(fmaxf(1.5f - fabsf(4.0f * norm - 2.0f), 0.0f), 1.0f);
+        float b = fminf(fmaxf(1.5f - fabsf(4.0f * norm - 1.0f), 0.0f), 1.0f); 
+        cosine[idx * 3] = __float2uint_rn(r * 255.0f);
+        cosine[idx * 3 + 1] = __float2uint_rn(g * 255.0f);
+        cosine[idx * 3 + 2] = __float2uint_rn(b * 255.0f);
     }
 }
+
 
 
 //__global__ void compute_cosine(float *phase, float *cosine, int N) {
