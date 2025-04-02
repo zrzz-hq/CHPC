@@ -13,8 +13,11 @@
 // #ifdef _cplusplus
 // extern "C" {
 // #endif
-__global__ void convert_type(uint8_t *inp, float *outp, int N);
-__global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
+__global__ void convert_type(uint16_t *inp, float *outp, int N);
+__global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
+__global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
+__global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
+
 // #ifdef _cplusplus
 // }
 // #endif
@@ -22,10 +25,17 @@ __global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float*
 class GPU
 {
 public:
+    enum class PhaseAlgorithm
+    {
+        NOVAK,
+        FOURPOINT,
+        CARRE
+    };
+
     GPU(int width, int height, size_t nPhaseBuffers);
     ~GPU();
     void getCudaVersion();
-    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>>  runNovak(Spinnaker::ImagePtr image);
+    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>>  run(Spinnaker::ImagePtr image, PhaseAlgorithm algor);
 
 private:
 
@@ -34,7 +44,7 @@ private:
     int threadPerBlock;
     int N;
 
-    uint8_t* imageBuffer;
+    // uint8_t* imageBuffer;
 
     cudaStream_t stream1;
     cudaStream_t stream2;

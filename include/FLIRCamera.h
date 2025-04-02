@@ -6,6 +6,8 @@
 #include <algorithm>
 
 using namespace Spinnaker;
+using namespace GenApi;
+
 class FLIRCamera 
 {
 public:
@@ -15,7 +17,10 @@ public:
   void stop();
   void close();
   ImagePtr read();
+  bool setExposureTime(int timeNS);
+  bool setPixelFormat(const std::string& format);
   bool setFPS(double fps);
+  bool setGain(double value);
   bool setResolution(int width, int height);
   bool enableTrigger(Spinnaker::TriggerSourceEnums line);
   void disableTrigger();

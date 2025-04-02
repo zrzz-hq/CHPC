@@ -22,11 +22,11 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
         phaseBuffers.push(phaseBuffer);
     }
 
-    error = cudaMalloc(&imageBuffer, N*sizeof(uint8_t));
-    if(error != cudaSuccess)
-    {
-        throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
-    }
+    // error = cudaMalloc(&imageBuffer, N*sizeof(uint8_t));
+    // if(error != cudaSuccess)
+    // {
+    //     throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
+    // }
 
     for(int i=0; i<6; i++)
     {
@@ -42,7 +42,7 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     for(int i=0; i<nPhaseBuffers; i++)
     {
         uint8_t* cosineBuffer;
-        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t)*3, cudaMemAttachHost);
+        error = cudaMallocHost(&cosineBuffer, N*sizeof(uint8_t)*3);
         if(error != cudaSuccess)
         {
             throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
@@ -76,12 +76,19 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
 GPU::~GPU()
 {
     // cudaFree(cosineHostBuffer);
-    cudaFree(imageBuffer);
+    // cudaFree(imageBuffer);
     while(buffers.size() > 0)
     {
         float* buffer = buffers.front();
         cudaFree(buffer);
         buffers.pop_front();
+    }
+
+    while(!cosineBuffers.empty())
+    {
+        uint8_t* buffer;
+        cosineBuffers.pop(buffer);
+        cudaFree(buffer);
     }
 
     cudaStreamDestroy(stream1);
@@ -97,7 +104,9 @@ void GPU::getCudaVersion()
 
 }
 
-std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnaker::ImagePtr newImage)
+
+
+std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::run(Spinnaker::ImagePtr newImage, PhaseAlgorithm algor)
 {
     std::shared_ptr<uint8_t> phaseImage = nullptr;
     std::shared_ptr<float> phaseMap = nullptr;
@@ -115,9 +124,9 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
 
     newImageDev = buffers.back();
 
-    convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
+    convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint16_t*>(newImage->GetData()), newImageDev, N);
 
-    if (eleCount < 5)
+    if (eleCount < (algor == PhaseAlgorithm::NOVAK ? 5 : 4))
     {
         eleCount++;
         goto updateBuffers;
@@ -128,7 +137,10 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
         goto updateBuffers;
     
     
-    compute_phase<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+    switch (algor)
+    {
+    case PhaseAlgorithm::NOVAK:
+        novak<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
@@ -136,8 +148,33 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
                                         phaseBuffer,
                                         cosineBuffer,
                                         N);
+        break;
+    case PhaseAlgorithm::FOURPOINT:
+        four_point<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+                                        buffers[1],
+                                        buffers[2],
+                                        buffers[3],
+                                        phaseBuffer,
+                                        cosineBuffer,
+                                        N);
+        break;
+    case PhaseAlgorithm::CARRE:
+        carres<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+                                        buffers[1],
+                                        buffers[2],
+                                        buffers[3],
+                                        phaseBuffer,
+                                        cosineBuffer,
+                                        N);
+    default:
+        break;
+    }
+    
     phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
     phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
+
+    eleCount = 0;
+
 
 updateBuffers:    
     buffers.pop_back();
