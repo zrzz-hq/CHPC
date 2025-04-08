@@ -1,6 +1,18 @@
 #pragma once
 #include <GLFW/glfw3.h>
 
-void InitImGui(GLFWwindow* window);
-void CleanupImGui();
-void RenderUI();
+#include <functional>
+#include <string>
+
+class UI
+{
+    public:
+
+    UI(GLFWwindow* window, std::function<void()> renderer);
+    ~UI();
+
+    void render();
+
+    private:
+    std::function<void()> renderer;
+};

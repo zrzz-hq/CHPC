@@ -23,9 +23,10 @@
 
 #define WIDTH 720
 #define HEIGHT 540
-#define FRAMERATE 60.0
+#define FRAMERATE 100.0
 #define EXPOSURE 12
 #define GAIN 0.0
+#define TRIGGERLINE 2
 
 
 std::deque<Spinnaker::ImagePtr> imageQueue1;
@@ -36,6 +37,17 @@ pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
 std::deque<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
+
+GLuint frameTexture;
+GLuint phaseTexture;
+std::atomic<GPU::PhaseAlgorithm> algorithm = GPU::PhaseAlgorithm::NOVAK;
+int width = WIDTH;
+int height = HEIGHT;
+int exposure = EXPOSURE;
+int frameRate = FRAMERATE;
+int triggerLine = TRIGGERLINE;
+double gain = GAIN;
+
 
 void cameraThreadCleanUp(void* arg)
 {
@@ -121,7 +133,7 @@ void* gpuThreadFunc(void* arg)
 
         pthread_mutex_unlock(&imageQueue1Mutex);
 
-        std::pair<std::shared_ptr<uint8_t>, std::shared_ptr<float>> pair = gpu->run(imagePtr, GPU::PhaseAlgorithm::CARRE);
+        std::pair<std::shared_ptr<uint8_t>, std::shared_ptr<float>> pair = gpu->run(imagePtr, algorithm);
         
         pthread_mutex_lock(&imageQueue2Mutex);
 
@@ -139,6 +151,90 @@ void* gpuThreadFunc(void* arg)
     }
     pthread_cleanup_pop(1);
     return 0;
+}
+
+void renderUI()
+{
+    ImVec2 avail  = ImGui::GetContentRegionAvail();
+
+    float leftWidth = avail.x * 0.25;
+    float rightWidth = avail.x * 0.75;
+    
+    ImGui::BeginChild("Left Panel", ImVec2(leftWidth, avail.y),true);
+
+    // Dropdown
+    ImGui::Text("Choose Phase Algorithm");
+    const char* algorithms[] = { "Novak", "Four Point", "Carre"};
+    int selectedAlgorithm = static_cast<int>(algorithm.load());
+    if(ImGui::Combo("##AlgorithmDropdown", &selectedAlgorithm, algorithms, IM_ARRAYSIZE(algorithms)))
+    {
+        algorithm = static_cast<GPU::PhaseAlgorithm>(selectedAlgorithm);
+    }
+
+    // Parameters Section
+    ImGui::Separator();
+    ImGui::Text("Parameters");
+
+    int inputWidth = width;
+    int inputHeight = height;
+    ImGui::InputInt("Width", &inputWidth);
+    ImGui::InputInt("Height", &inputHeight);
+
+    int inputFrameRate = frameRate;
+    int inputExposure = exposure;
+    float inputGain = gain;
+    ImGui::InputInt("Framerate", &inputFrameRate);
+    ImGui::InputInt("Exposure", &inputExposure);
+    ImGui::InputFloat("Gain", &inputGain);
+
+    ImGui::Text("Input Device");
+    const char* inputDevice[] = { "Camera 1" };
+    int selectedInputDevice = 0;
+    ImGui::Combo("##DeviceDropdown", &selectedInputDevice, inputDevice, IM_ARRAYSIZE(inputDevice));
+    ImGui::Separator();
+    // Trigger and Save Buttons
+    bool triggerContinuous = false;
+    ImGui::Checkbox("Trigger/Continuous", &triggerContinuous);
+
+    int selectedTriggerLine = triggerLine;
+    const char* lineSelect[] = { "Trigger Line 1", "Trigger Line 2", "Trigger Line 3",  "Trigger Line 4"};
+    ImGui::Combo("##TriggerDropdown", &selectedTriggerLine, lineSelect, IM_ARRAYSIZE(lineSelect));
+
+    ImGui::Separator();
+    if (ImGui::Button("Save Phase Maps")) 
+    {
+        // Handle button click
+    }
+
+    ImGui::SameLine();
+
+    ImGui::LabelText("Saved Images", "Saved Images %d", 1);
+
+    ImGui::Separator();
+    
+    // Start & Stop Buttons
+    if (ImGui::Button("Start", ImVec2(80, 40))) 
+    {
+        // Handle start
+    }
+    
+    ImGui::SameLine();
+    if (ImGui::Button("Stop", ImVec2(80, 40))) 
+    {
+        // Handle stop
+    }
+
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    // ImGui::Spacing();
+    ImGui::BeginChild("Right Panel", ImVec2(rightWidth, avail.y), true, ImGuiWindowFlags_HorizontalScrollbar);
+
+    ImGui::Image((ImTextureID)frameTexture, ImVec2(width, height));
+    ImGui::SameLine();
+    ImGui::Image((ImTextureID)phaseTexture, ImVec2(width, height));
+
+    ImGui::EndChild();
 }
 
 namespace po = boost::program_options;
@@ -201,12 +297,6 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    int width = WIDTH;
-    int height = HEIGHT;
-    int exposure = EXPOSURE;
-    int frameRate = FRAMERATE;
-    double gain = GAIN;
-
     GPU gpu(width,height,50);
     FLIRCamera cam;
     cam.open(0);
@@ -239,7 +329,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     // int key = GLFW_KEY_UNKNOWN;
     GLFWwindow* frame = glfwCreateWindow(width * 2, height, "frame", NULL, NULL);
@@ -250,9 +340,6 @@ int main(int argc, char* argv[])
         std::cout << "Failed to create the main window" << std::endl;
     }
 
-    InitImGui(frame);
-
-    GLuint frameTexture;
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &frameTexture);
     glBindTexture(GL_TEXTURE_2D, frameTexture);
@@ -261,7 +348,6 @@ int main(int argc, char* argv[])
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE16, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_SHORT , NULL);
 
-    GLuint phaseTexture;
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &phaseTexture);
     glBindTexture(GL_TEXTURE_2D, phaseTexture);
@@ -273,6 +359,8 @@ int main(int argc, char* argv[])
     auto last = std::chrono::system_clock::now();
     bool spacePressed = false;
     int imageCount = 0;
+
+    UI ui(frame, renderUI);
 
     while(!glfwWindowShouldClose(frame))
     {
@@ -290,36 +378,18 @@ int main(int argc, char* argv[])
         pthread_mutex_unlock(&imageQueue2Mutex);
 
 
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        RenderUI();
-
         glBindTexture(GL_TEXTURE_2D, frameTexture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_SHORT, std::get<0>(tuple)->GetData());
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0, 0.0); glVertex2f(0.0, -1.0);
-        glTexCoord2f(1.0, 1.0); glVertex2f(0.0, 1.0);
-        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-        glEnd();
 
         if(std::get<1>(tuple) != nullptr)
         {
             glBindTexture(GL_TEXTURE_2D, phaseTexture);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, std::get<1>(tuple).get());
-            glBegin(GL_QUADS);
-            glTexCoord2f(0.0, 0.0); glVertex2f(0.0, -1.0);
-            glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-            glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-            glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
-            glEnd();
         }
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        ui.render();
+
         glfwSwapBuffers(frame);
-
-
         
         int state = glfwGetKey(frame, GLFW_KEY_SPACE);
         if(state == GLFW_PRESS && !spacePressed)
@@ -363,8 +433,6 @@ int main(int argc, char* argv[])
     imageQueue2.clear();
 
     cam.close();
-
-    CleanupImGui();
 
     glfwDestroyWindow(frame);
     glfwTerminate();

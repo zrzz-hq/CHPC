@@ -2,6 +2,60 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 
+#include "ui.h"
+
+
+UI::UI(GLFWwindow* window, std::function<void()> renderer):renderer(renderer)
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    (void)io;
+
+    ImGui::StyleColorsLight();  // Use Dark Mode Theme
+
+    // Setup platform/renderer bindings
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+
+    // ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    // ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+}
+
+UI::~UI()
+{
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+}
+
+void UI::render()
+{
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+
+
+    ImGui::Begin("Main Panel", nullptr, ImGuiWindowFlags_AlwaysAutoResize
+    | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
+    | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus ); 
+
+
+    renderer();
+
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
 // Initialize Dear ImGui
 void InitImGui(GLFWwindow* window) {
     IMGUI_CHECKVERSION();
@@ -9,7 +63,7 @@ void InitImGui(GLFWwindow* window) {
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
 
-    ImGui::StyleColorsDark();  // Use Dark Mode Theme
+    ImGui::StyleColorsLight();  // Use Dark Mode Theme
 
     // Setup platform/renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -28,7 +82,7 @@ void RenderUI() {
 
     // Dropdown
     ImGui::Text("Choose Phase Algorithm");
-    const char* algorithms[] = { "Algorithm 1", "Algorithm 2", "Algorithm 3" };
+    const char* algorithms[] = { "Carre", "Novak", "Four Point" };
     static int selectedAlgorithm = 0;
     ImGui::Combo("##AlgorithmDropdown", &selectedAlgorithm, algorithms, IM_ARRAYSIZE(algorithms));
 
@@ -45,15 +99,20 @@ void RenderUI() {
     ImGui::InputFloat("Exposure", &exposure);
     ImGui::InputFloat("Gain", &gain);
 
-    static char inputDevice[128] = "Camera 1";
-    ImGui::InputText("Input Device", inputDevice, IM_ARRAYSIZE(inputDevice));
-
+    ImGui::Text("Input Device");
+    const char* inputDevice[] = { "Camera 1" };
+    static int selectedInputDevice = 0;
+    ImGui::Combo("##DeviceDropdown", &selectedInputDevice, inputDevice, IM_ARRAYSIZE(inputDevice));
+    ImGui::Separator();
     // Trigger and Save Buttons
     static bool triggerContinuous = false;
     ImGui::Checkbox("Trigger/Continuous", &triggerContinuous);
 
-    static int triggerLine = 0, numSuccessiveImages = 1;
-    ImGui::InputInt("Trigger Line", &triggerLine);
+    static int triggerLine = 2, numSuccessiveImages = 1;
+    const char* lineSelect[] = { "Trigger Line 1", "Trigger Line 2", "Trigger Line 3",  "Trigger Line 4"};
+    ImGui::Combo("##TriggerDropdown", &triggerLine, lineSelect, IM_ARRAYSIZE(lineSelect));
+
+    ImGui::Separator();
     ImGui::InputInt("Successive Images", &numSuccessiveImages);
 
     if (ImGui::Button("Save Phase Maps")) {

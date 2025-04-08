@@ -27,9 +27,9 @@ class GPU
 public:
     enum class PhaseAlgorithm
     {
-        NOVAK,
-        FOURPOINT,
-        CARRE
+        NOVAK = 0,
+        FOURPOINT = 1,
+        CARRE = 2
     };
 
     GPU(int width, int height, size_t nPhaseBuffers);
