@@ -43,6 +43,7 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     {
         uint8_t* cosineBuffer;
         error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t)*3, cudaMemAttachHost);
+        // error = cudaMallocHost(&cosineBuffer, N*sizeof(uint8_t)*3);
         if(error != cudaSuccess)
         {
             throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));

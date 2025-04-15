@@ -173,6 +173,7 @@ int main(int argc, char* argv[])
     cam.open(0);
     cam.setResolution(width,height);
     cam.setFPS(frameRate);
+    cam.setExposureTime(-1);
 
     if(triggerLine != -1)
     {

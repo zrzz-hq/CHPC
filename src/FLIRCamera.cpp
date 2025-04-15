@@ -2,6 +2,7 @@
 #include "cuda_runtime.h"
 
 using namespace Spinnaker;
+using namespace GenApi;
 
 FLIRCamera::FLIRCamera()
 {
@@ -126,6 +127,7 @@ bool FLIRCamera::start()
         return true;
     
     size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
+    // size_t bufferSize = mWidth * mHeight;
     unsigned userBufferNum = 50;
     for(int i=0; i<userBufferNum; i++)
     {
@@ -261,8 +263,6 @@ ImagePtr FLIRCamera::read()
     }
 bool FLIRCamera::setResolution(int width, int height)
 {
-    using namespace Spinnaker;
-    using namespace GenApi;
 
     if (mCam == nullptr)
         return false; // Camera not available
@@ -313,4 +313,34 @@ bool FLIRCamera::setResolution(int width, int height)
         return false;
     }
 
+}
+
+bool FLIRCamera::setExposureTime(int timeNS)
+{
+    INodeMap& nodeMap = mCam->GetNodeMap();
+    if(timeNS < 0)
+    {
+        CEnumerationPtr exposureAuto = nodeMap.GetNode("ExposureAuto");
+        if(IsAvailable(exposureAuto) && IsWritable(exposureAuto))
+        {
+            CEnumEntryPtr exposureContinous = exposureAuto->GetEntryByName("Continuous");
+            exposureAuto->SetIntValue(exposureContinous->GetValue());
+        }
+    }
+    else
+    {
+        CEnumerationPtr exposureAuto = nodeMap.GetNode("ExposureAuto");
+        if(IsAvailable(exposureAuto) && IsWritable(exposureAuto))
+        {
+            CEnumEntryPtr exposureAutoOff =exposureAuto->GetEntryByName("Off");
+            exposureAuto->SetIntValue(exposureAutoOff->GetValue());
+        }
+
+        CFloatPtr exposureTime = nodeMap.GetNode("ExposureTime");
+        if(IsAvailable(exposureTime) && IsWritable(exposureTime))
+        {
+            exposureTime->SetValue(timeNS);
+            std::cout << "Exposure time: " << exposureTime->GetValue() << std::endl; 
+        }
+    }
 }

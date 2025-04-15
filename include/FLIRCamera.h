@@ -17,6 +17,7 @@ public:
   ImagePtr read();
   bool setFPS(double fps);
   bool setResolution(int width, int height);
+  bool setExposureTime(int timeNS);
   bool enableTrigger(Spinnaker::TriggerSourceEnums line);
   void disableTrigger();
 
