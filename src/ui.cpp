@@ -289,11 +289,12 @@ void StartupWindow::render()
     ImGui::End();
 }
 
-MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> config):
-    WindowBase(width*2, height, "PhaseVisualizer")
+MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig):
+    WindowBase(1200, 600, "PhaseVisualizer"),
+    gpuConfig_(gpuConfig)
 {
-    width = config->width->GetValue();
-    height = config->height->GetValue();
+    width = cameraConfig->width->GetValue();
+    height = cameraConfig->height->GetValue();
 
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &frameTexture);
@@ -347,30 +348,28 @@ void MainWindow::render()
     // Dropdown
     ImGui::Text("Actual FrameRate: %f",(1000.0 / duration));//Measure actual framerate
     ImGui::Text("Choose Phase Algorithm");
-    const char* algorithms[] = { "Novak", "Four Point", "Carre"};
-    int selectedAlgorithm;//static_cast<int>(algorithm.load());
-    if(ImGui::Combo("##AlgorithmDropdown", &selectedAlgorithm, algorithms, IM_ARRAYSIZE(algorithms)))
+    int algorithmIndex = gpuConfig_->algorithmIndex;//static_cast<int>(algorithm.load());
+    if(ImGui::Combo("##AlgorithmDropdown", &algorithmIndex, gpuConfig_->algorithmNames, gpuConfig_->nAlgorithms))
     {
         //algorithm = static_cast<GPU::PhaseAlgorithm>(selectedAlgorithm);
-        std::cout << "Currently Selected Algorithm: " << selectedAlgorithm << std::endl;
+        gpuConfig_->algorithmIndex = algorithmIndex;
+        // std::cout << "Currently Selected Algorithm: " << selectedAlgorithm << std::endl;
     }
 
     ImGui::Separator();
-    ImGui::Text("Number of Successive Images"); ImGui::SameLine(120);
-    ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1);
+    ImGui::Text("Number of Images"); ImGui::SameLine(140);
+    ImGui::SetNextItemWidth(100);
+    if(ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1)){
+        numSuccessiveImages = std::max(0,std::min(numSuccessiveImages, 10));
+
+    }
+    ImGui::Text("File Name"); ImGui::SameLine(140);
+    ImGui::SetNextItemWidth(120);
+    ImGui::InputText("##File Name", textBuffer, IM_ARRAYSIZE(textBuffer));
     if (ImGui::Button("Save Phase Maps")) 
     {
-    /*  std::shared_ptr<float> phaseMap = std::get<2>(tuple);
-        if(phaseMap != nullptr)
-        {
-            cv::Mat phaseMat(height, width, CV_32F);
-            if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
-                std::cout << "Failed to copy data" << std::endl;
-            else
-                writeMatToCSV(phaseMat, "/home/nvidia/images/" + std::to_string(imageCount) + ".csv");
-        }
-    */
- 
+        //Save Phase Map flag
+        nSavedPhaseMap = numSuccessiveImages;
     }
 
     //ImGui::SameLine();
@@ -388,26 +387,6 @@ void MainWindow::render()
     ImGui::End();
 }
 
-void MainWindow::writeMatToCSV(const cv::Mat mat, const std::string& fileName){
-    std::ofstream file(fileName);
-
-    if (!file.is_open()){
-        std::cout << "Error: Could not write phase map to csv file\n";
-        return;
-    }
-
-    for (int i = 0; i < mat.rows; i++){
-        for (int j = 0; j < mat.cols; j++){
-            file << mat.at<float>(i, j);
-            if (j < mat.cols-1)
-                file << ',';
-        }
-        file << '\n';
-    }
-    file.close();
-    std::cout << "Phase map saved to " << fileName << std::endl; 
-
-}
 
 // ImGui::Begin("Main Panel", nullptr, ImGuiWindowFlags_AlwaysAutoResize
 //     | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse

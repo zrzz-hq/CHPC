@@ -8,6 +8,7 @@
 #include <chrono>
 
 #include "FLIRCamera.h"
+#include "GPU.h"
 
 class WindowBase
 {
@@ -68,23 +69,25 @@ class StartupWindow: public WindowBase
 class MainWindow: public WindowBase
 {
     public:
-    MainWindow(std::shared_ptr<FLIRCamera::Config> config);
+    MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig);
     ~MainWindow();
 
     void update(void* frameData, void* phaseData);
     void render() final;
+    int nSavedPhaseMap = 0;
+    int numSuccessiveImages = 1;
+    char textBuffer[64] = "PhaseMap";
 
     private:
-    void writeMatToCSV(const cv::Mat mat, const std::string& fileName);
     GLuint frameTexture;
     GLuint phaseTexture;
-    int numSuccessiveImages = 1;
+    
     std::chrono::_V2::system_clock::time_point now;
     std::chrono::_V2::system_clock::time_point last;
     int width;
     int height;
-    // std::shared_ptr<FLIRCamera::Config> config_;
-    // GPU gpu;
+    
+    std::shared_ptr<GPU::Config> gpuConfig_;
 };
 
 // struct MainParameters

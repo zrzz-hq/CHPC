@@ -155,7 +155,9 @@ int main(int argc, char* argv[])
         }
     }
 
-    GPU gpu(cameraConfig->width->GetValue(), cameraConfig->height->GetValue(), 40);
+    int width = cameraConfig->width->GetValue();
+    int height = cameraConfig->height->GetValue();
+    GPU gpu(width, height, 40);
     pthread_t gpuThread;
     if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
     {
@@ -169,8 +171,7 @@ int main(int argc, char* argv[])
         std::cout << "Failed to create camera thread" << std::endl;
         return 1;
     }
-
-    MainWindow mainWindow(cameraConfig);
+    MainWindow mainWindow(cameraConfig, gpu.getConfig());
     while(mainWindow.ok())
     {
         std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
@@ -186,6 +187,27 @@ int main(int argc, char* argv[])
 
         mainWindow.update(std::get<0>(tuple)->GetData(), std::get<1>(tuple).get());
         mainWindow.spinOnce();
+        
+        if (mainWindow.nSavedPhaseMap > 0)
+        {
+            //Save Phase Maps
+            std::shared_ptr<float> phaseMap = std::get<2>(tuple);
+            if(phaseMap != nullptr)
+            {
+                cv::Mat phaseMat(height, width, CV_32F);
+                if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
+                {
+                    std::cout << "Failed to copy data" << std::endl;
+                }
+                else
+                {
+                    std::string fileName = mainWindow.textBuffer;
+                    std::string filePath =  "/home/nvidia/images/";
+                    writeMatToCSV(phaseMat, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
+                }
+            }
+            mainWindow.nSavedPhaseMap--;
+        }
     }
 
     pthread_cancel(gpuThread);

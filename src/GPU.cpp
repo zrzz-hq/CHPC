@@ -2,7 +2,8 @@
 
 GPU::GPU(int width, int height, size_t nPhaseBuffers):
     cosineBuffers(nPhaseBuffers),
-    phaseBuffers(nPhaseBuffers)
+    phaseBuffers(nPhaseBuffers),
+    config(std::make_shared<GPU::Config>())
 {
     eleCount = 0;
     N = width * height;
@@ -98,6 +99,11 @@ void GPU::getCudaVersion()
 
 }
 
+std::shared_ptr<GPU::Config> GPU::getConfig()
+{
+    return config;
+}
+
 std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnaker::ImagePtr newImage)
 {
     std::shared_ptr<uint8_t> phaseImage = nullptr;
@@ -118,7 +124,7 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
 
     convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
 
-    if (eleCount < 5)
+    if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))
     {
         eleCount++;
         goto updateBuffers;
@@ -128,8 +134,11 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
     if(!cosineBuffers.pop(cosineBuffer) || !phaseBuffers.pop(phaseBuffer))
         goto updateBuffers;
     
-    
-    novak<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+ 
+    switch (config->algorithmIndex)
+    {
+    case 0:
+        novak<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
@@ -137,6 +146,27 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
                                         phaseBuffer,
                                         cosineBuffer,
                                         N);
+        break;
+    case 1:
+        four_point<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+                                        buffers[1],
+                                        buffers[2],
+                                        buffers[3],
+                                        phaseBuffer,
+                                        cosineBuffer,
+                                        N);
+        break;
+    case 2:
+        carres<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+                                        buffers[1],
+                                        buffers[2],
+                                        buffers[3],
+                                        phaseBuffer,
+                                        cosineBuffer,
+                                        N);
+    default:
+        break;
+    }
     phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
     phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
 

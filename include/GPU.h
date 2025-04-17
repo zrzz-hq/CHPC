@@ -26,15 +26,23 @@ __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase,
 class GPU
 {
 public:
-    enum class PhaseAlgorithm
+    // enum class PhaseAlgorithm
+    // {
+    //     NOVAK = 0,
+    //     FOURPOINT = 1,
+    //     CARRE = 2
+    // };
+
+    struct Config
     {
-        NOVAK = 0,
-        FOURPOINT = 1,
-        CARRE = 2
+        int algorithmIndex = 2;
+        const char* algorithmNames[3] = {"Novak", "FourPoints", "Carre"};
+        int nAlgorithms = 3;
     };
 
     GPU(int width, int height, size_t nPhaseBuffers);
     ~GPU();
+    std::shared_ptr<Config> getConfig();
     void getCudaVersion();
     std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>>  runNovak(Spinnaker::ImagePtr image);
 
@@ -56,6 +64,6 @@ private:
 
     void phaseBufferDeleter(float* ptr);
     void cosineBufferDeleter(uint8_t* ptr);
-    // pthread_mutex_t cosineBufferMutex;
+    std::shared_ptr<Config> config;
 
 };
