@@ -67,99 +67,89 @@ LibraryVersion version = system->GetLibraryVersion();
 std::cout << version.major << std::endl;
 }
 
-bool FLIRCamera::open(uint32_t devID)
+std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
 {
-    mCam = mCamList.GetByIndex(devID);
+    std::shared_ptr<Config> config = std::make_shared<Config>();
+    mCam = mCamList.GetByIndex(index);
+
     if(!mCam)
-        return false;
+        return nullptr;
 
     // Initialize camera
     mCam->Init();
 
-    using namespace GenApi;
     INodeMap& nodeMap = mCam->GetNodeMap();
     INodeMap& nodeMapTLDevice = mCam->GetTLDeviceNodeMap();
 
-    CIntegerPtr ptrInt = nodeMap.GetNode("Width");
-    if(IsAvailable(ptrInt))
+    config->width = nodeMap.GetNode("Width");
+    if(IsAvailable(config->width))
     {
-        mWidth = ptrInt->GetMax();
+        mWidth = config->width->GetMax();
     }
 
-    ptrInt = nodeMap.GetNode("Height");
-    if (IsAvailable(ptrInt))
+    config->height= nodeMap.GetNode("Height");
+    if (IsAvailable(config->height))
     {
-        mHeight =  ptrInt->GetMax();
+        mHeight =  config->height->GetMax();
     }
 
     std::cout << "Maximum width: " << mWidth << " Maximum height: " << mHeight << std::endl; 
 
-    CBooleanPtr ptrAcquisitionFrameRateEnable = nodeMap.GetNode("AcquisitionFrameRateEnable");
-    if (IsAvailable(ptrAcquisitionFrameRateEnable) && IsWritable(ptrAcquisitionFrameRateEnable))
+    config->acquisitionFrameRateEnable = nodeMap.GetNode("AcquisitionFrameRateEnable");
+    if (IsAvailable(config->acquisitionFrameRateEnable) && IsWritable(config->acquisitionFrameRateEnable))
     {
-        ptrAcquisitionFrameRateEnable->SetValue(true);
+        config->acquisitionFrameRateEnable->SetValue(true);
     }
 
-    CFloatPtr ptrFloat = nodeMap.GetNode("AcquisitionFrameRate");
-    if(IsAvailable(ptrInt))
-    {
-        mFPS =  ptrFloat->GetValue();
-        std::cout << "FPS: " << mFPS << std::endl;
-    }
-
-    CEnumerationPtr exposureAuto = nodeMap.GetNode("ExposureAuto");
-    if(IsAvailable(exposureAuto) && IsWritable(exposureAuto))
-    {
-        CEnumEntryPtr exposureAutoOff =exposureAuto->GetEntryByName("Off");
-        exposureAuto->SetIntValue(exposureAutoOff->GetValue());
-    }
-
-    CFloatPtr exposureTime = nodeMap.GetNode("ExposureTime");
-    if(IsAvailable(exposureTime) && IsWritable(exposureTime))
-    {
-        exposureTime->SetValue(4);
-        std::cout << "Exposure time: " << exposureTime->GetValue() << std::endl; 
-    }
+    config->frameRate = nodeMap.GetNode("AcquisitionFrameRate");
+    config->exposureMode = nodeMap.GetNode("ExposureAuto");
+    config->exposureTime = nodeMap.GetNode("ExposureTime");
+    config->gainMode = nodeMap.GetNode("GainAuto");
+    config->gain = nodeMap.GetNode("Gain");
+    config->pixelFormat = nodeMap.GetNode("PixelFormat");
+    config->triggerMode = nodeMap.GetNode("TriggerMode");
+    config->triggerSource = nodeMap.GetNode("TriggerSource");
 
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
-    // if(!mInputBuffer.allocate(mWidth, mHeight, mSurfaceFormat))
-    //     return false;
+
+    return config;
 }
+
 
 void FLIRCamera::close()
 {
     if(mCam)
-        mCam->DeInit();
+    mCam->DeInit();
 }
 
 bool FLIRCamera::start()
 {
     if(mCam && mCam -> IsStreaming())
-        return true;
-    
-    size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
-    // size_t bufferSize = mWidth * mHeight;
-    unsigned userBufferNum = 50;
-    for(int i=0; i<userBufferNum; i++)
-    {
-        void* hostBuffer;
-        cudaError_t error = cudaMallocHost(&hostBuffer, bufferSize);
-        if(error != cudaSuccess)
-        {
-            std::cout << "Failed to allocate image buffer: " << cudaGetErrorString(error) << std::endl;
-            return false;
-        }
-        buffers.push_back(hostBuffer);
-    }
-    
-    mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
-    mCam->BeginAcquisition();
-
-    std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
-    std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;
-
     return true;
+
+size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
+// size_t bufferSize = mWidth * mHeight;
+unsigned userBufferNum = 50;
+for(int i=0; i<userBufferNum; i++)
+{
+    void* hostBuffer;
+    cudaError_t error = cudaMallocHost(&hostBuffer, bufferSize);
+    if(error != cudaSuccess)
+    {
+        std::cout << "Failed to allocate image buffer: " << cudaGetErrorString(error) << std::endl;
+        return false;
+    }
+    buffers.push_back(hostBuffer);
+}
+
+mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
+mCam->BeginAcquisition();
+
+std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
+std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;
+
+return true;
 }
 
 void FLIRCamera::stop()
@@ -167,26 +157,12 @@ void FLIRCamera::stop()
     if(mCam && mCam->IsStreaming())
     {
         mCam->EndAcquisition();
-
+        
         for(void* buffer : buffers)
         {
             cudaFree(buffer);
         }
     }
-}
-
-bool FLIRCamera::enableTrigger(Spinnaker::TriggerSourceEnums line)
-{
-    mCam->TriggerSelector.SetValue(TriggerSelector_FrameBurstStart);
-    mCam->TriggerSource.SetValue(line);
-    mCam->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
-    mCam->TriggerMode.SetValue(TriggerMode_On);
-    return mCam->TriggerMode.GetValue() == TriggerMode_On;
-}
-
-void FLIRCamera::disableTrigger()
-{
-    mCam->TriggerMode.SetValue(TriggerMode_Off);
 }
 
 ImagePtr FLIRCamera::read()
@@ -227,13 +203,77 @@ ImagePtr FLIRCamera::read()
 
 }
 
-    bool FLIRCamera::setFPS(double fps){
-        using namespace Spinnaker;
+//Set Functions
+/*
+bool FLIRCamera::setGain(double value)
+{
+    INodeMap& nodeMap = mCam->GetNodeMap();
+
+   
+    if(IsAvailable(gainAuto) && IsWritable(gainAuto))
+    {
+        gainAuto->FromString("Off");
+    }
+
+    CFloatPtr gain = nodeMap.GetNode("Gain");
+    if(IsAvailable(gain) && IsWritable(gain))
+    {
+        double minGain = gain->GetMin();
+        double maxGain = gain->GetMax();
+
+        gain->SetValue(std::min(std::max(value, minGain), maxGain));
+    }
+
+    std::cout << "Gain: " << gain->GetValue() << std::endl;
+}
+
+bool FLIRCamera::enableTrigger(Spinnaker::TriggerSourceEnums line)//Uses Spinnaker instead of GenApi
+{
+    mCam->TriggerSelector.SetValue(TriggerSelector_FrameBurstStart);
+    mCam->TriggerSource.SetValue(line);
+    mCam->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+    mCam->TriggerMode.SetValue(TriggerMode_On);
+    return mCam->TriggerMode.GetValue() == TriggerMode_On;
+}pixelFormat = nodeMap.GetNode("PixelFormat");
+
+void FLIRCamera::disableTrigger()//Uses Spinnaker instead of GenApi
+{
+    mCam->TriggerMode.SetValue(TriggerMode_Off);
+}
+bool FLIRCamera::setPixelFormat(const std::string& format)
+{
+    INodeMap& nodeMap = mCam->GetNodeMap();
+    
+    CEnumerationPtr pixelFormat = nodeMap.GetNode("PixelFormat");
+    if(IsAvailable(pixelFormat) && IsWritable(pixelFormat))
+    {
+        CEnumEntryPtr pixelFormatMono16 = pixelFormat->GetEntryByName("Mono16");
+        if(IsAvailable(pixelFormatMono16) && IsReadable(pixelFormatMono16))
+        {
+            pixelFormat->SetIntValue(pixelFormatMono16->GetValue());
+        }
+        else
+        {
+            std::cout << "The camera does not support mono16 format" << std::endl;
+            return false;
+        }
+    }
+    else
+    {
+        std::cout << "Failed to set the pixel format";
+        return false;
+    }
+    
+    return true;
+}
+
+bool FLIRCamera::setFPS(double fps){
+    using namespace Spinnaker;
     using namespace GenApi;
-
+    
     if (mCam == nullptr)
-        return false; // Camera not available
-
+    return false; // Camera not available
+    
     try
     {
         INodeMap& nodeMap = mCam->GetNodeMap();
@@ -272,15 +312,15 @@ ImagePtr FLIRCamera::read()
         std::cerr << "Error setting FPS: " << e.what() << std::endl;
         return false;
     }
-    }
-bool FLIRCamera::setResolution(int width, int height)
+}
+
+bool FLIRCamera::setResolution(int width, int height){
+    
+if (mCam == nullptr)
+return false; // Camera not available
+
+try
 {
-
-    if (mCam == nullptr)
-        return false; // Camera not available
-
-    try
-    {
         INodeMap& nodeMap = mCam->GetNodeMap();
         // Set Width
         CIntegerPtr ptrWidth = nodeMap.GetNode("Width");
@@ -356,3 +396,4 @@ bool FLIRCamera::setExposureTime(int timeNS)
         }
     }
 }
+*/

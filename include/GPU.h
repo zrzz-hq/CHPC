@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cuda_runtime.h"
 #include <iostream>
 #include <queue>
@@ -14,7 +16,9 @@
 // extern "C" {
 // #endif
 __global__ void convert_type(uint8_t *inp, float *outp, int N);
-__global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
+__global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
+__global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
+__global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
 // #ifdef _cplusplus
 // }
 // #endif
@@ -22,6 +26,13 @@ __global__ void compute_phase(float* p1, float* p2, float* p3, float* p4, float*
 class GPU
 {
 public:
+    enum class PhaseAlgorithm
+    {
+        NOVAK = 0,
+        FOURPOINT = 1,
+        CARRE = 2
+    };
+
     GPU(int width, int height, size_t nPhaseBuffers);
     ~GPU();
     void getCudaVersion();

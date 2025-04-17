@@ -16,8 +16,9 @@
 
 #define WIDTH 720
 #define HEIGHT 540
-#define FRAMERATE 60.0
-
+#define FRAMERATE 60
+#define EXPOSURETIME -1
+#define GAIN 0
 
 std::deque<Spinnaker::ImagePtr> imageQueue1;
 pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -132,97 +133,29 @@ void writeMatToCSV(const cv::Mat mat, const std::string& fileName){
 
 int main(int argc, char* argv[])
 {
-    int width = WIDTH;
-    int height = HEIGHT;
-    int frameRate = FRAMERATE;
-    int triggerLine = -1;
-    switch(argc)
-    {
-        case 5:
-        triggerLine = std::stoi(argv[4]);
-        case 4:
-        frameRate = std::stoi(argv[3]);
-        case 3:
-        height = std::stoi(argv[2]);
-        case 2:
-        width = std::stoi(argv[1]);
-        break;
-        default:
-        break;
-    }
-
-    if(!glfwInit())
-    {
-        std::cout << "Failed to init glfw library" << std::endl;
-        return -1;
-    }
     FLIRCamera cam;
     //Start up Window
-    
-    GLFWwindow* startupFrame = glfwCreateWindow(300, 200, "startupFrame", NULL, NULL);
-    
-    glfwMakeContextCurrent(startupFrame);
-    if(!startupFrame)
+
+    std::shared_ptr<FLIRCamera::Config> cameraConfig;
+    std::vector<std::string> deviceIds = cam.enumCamera();
+    if(deviceIds.size() == 0)
     {
-        std::cout << "Failed to create the main window" << std::endl;
+        ErrorWindow errorWin;
+        errorWin.spin();
         return -1;
-    }
-
-    StartupParameters startupParams;
-
-    std::vector<std::string> cameraIds = cam.enumCamera();
-    if(cameraIds.size() == 0)
-    {
-        //No cameras Detected
-        bool shouldClose = false;
-        UI ui(startupFrame, [&]{
-            errorUI(shouldClose);
-        });
-
-        while(!glfwWindowShouldClose(startupFrame) && !shouldClose)
-        {
-            glfwPollEvents();
-            ui.render();
-            glfwSwapBuffers(startupFrame);
-        }
-        glfwDestroyWindow(startupFrame);
-        glfwTerminate();
-        return 0;
     }
     else
     {
-        startupParams.nDevices = cameraIds.size();
-        startupParams.deviceNames = new const char*[cameraIds.size()];
-        for(size_t i=0;i<cameraIds.size();i++)
+        cameraConfig = cam.open(0);
+        StartupWindow startupWin(cameraConfig);
+        if(startupWin.spin() == -1)
         {
-            startupParams.deviceNames[i] = cameraIds[i].c_str();
+            cam.close();
+            return -1;
         }
-
-        UI ui(startupFrame, [&]{
-            startupUI(startupParams);
-        });
-        //Cameras detected
-        while(!glfwWindowShouldClose(startupFrame))
-        {
-            glfwPollEvents();
-            ui.render();
-            glfwSwapBuffers(startupFrame);
-        }
-
-        glfwDestroyWindow(startupFrame);
-    }
-    //End Start Up Window
-    GPU gpu(width,height,50);
-    cam.open(0);
-    cam.setResolution(width,height);
-    cam.setFPS(frameRate);
-    cam.setExposureTime(-1);
-
-    if(triggerLine != -1)
-    {
-        cam.enableTrigger(TriggerSource_Line3);
     }
 
+    GPU gpu(cameraConfig->width->GetValue(), cameraConfig->height->GetValue(), 40);
     pthread_t gpuThread;
     if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
     {
@@ -237,43 +170,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    // int key = GLFW_KEY_UNKNOWN;
-    GLFWwindow* frame = glfwCreateWindow(width * 2, height, "frame", NULL, NULL);
-    // glfwSetWindowUserPointer(frame, &key);
-    glfwMakeContextCurrent(frame);
-    if(!frame)
+    MainWindow mainWindow(cameraConfig);
+    while(mainWindow.ok())
     {
-        std::cout << "Failed to create the main window" << std::endl;
-    }
-
-    GLuint frameTexture;
-    glEnable(GL_TEXTURE_2D);
-    glGenTextures(1, &frameTexture);
-    glBindTexture(GL_TEXTURE_2D, frameTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, NULL);
-
-    GLuint phaseTexture;
-    glEnable(GL_TEXTURE_2D);
-    glGenTextures(1, &phaseTexture);
-    glBindTexture(GL_TEXTURE_2D, phaseTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-    auto last = std::chrono::system_clock::now();
-    bool spacePressed = false;
-    int imageCount = 0;
-
-    while(!glfwWindowShouldClose(frame))
-    {
-        glfwPollEvents();
-        
         std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
 
         pthread_mutex_lock(&imageQueue2Mutex);
@@ -285,61 +184,8 @@ int main(int argc, char* argv[])
 
         pthread_mutex_unlock(&imageQueue2Mutex);
 
-        glBindTexture(GL_TEXTURE_2D, frameTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, std::get<0>(tuple)->GetData());
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0, 0.0); glVertex2f(0.0, -1.0);
-        glTexCoord2f(1.0, 1.0); glVertex2f(0.0, 1.0);
-        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-        glEnd();
-
-        if(std::get<1>(tuple) != nullptr)
-        {
-            glBindTexture(GL_TEXTURE_2D, phaseTexture);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, std::get<1>(tuple).get());
-            glBegin(GL_QUADS);
-            glTexCoord2f(0.0, 0.0); glVertex2f(0.0, -1.0);
-            glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-            glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-            glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 1.0);
-            glEnd();
-
-            cv::Mat();
-        }
-        glfwSwapBuffers(frame);
-
-        
-        int state = glfwGetKey(frame, GLFW_KEY_SPACE);
-        if(state == GLFW_PRESS && !spacePressed)
-        {
-            spacePressed = true;
-        }
-        if(state == GLFW_RELEASE && spacePressed)
-        {
-            spacePressed = false;
-            imageCount ++;
-            // if(!cv::imwrite("/home/nvidia/images/" + std::to_string(imageCount) + ".png", cv::Mat(height, width, CV_32F, std::get<2>(tuple).get())))
-            //     std::cout << "Failed to save image" << std::endl;
-            // else
-            //     std::cout << "Image saved" << std::endl;
-            std::shared_ptr<float> phaseMap = std::get<2>(tuple);
-            if(phaseMap != nullptr)
-            {
-                cv::Mat phaseMat(height, width, CV_32F);
-                if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
-                    std::cout << "Failed to copy data" << std::endl;
-                else
-                    writeMatToCSV(phaseMat, "/home/nvidia/images/" + std::to_string(imageCount) + ".csv");
-            }
-        }
-        
-
-        auto now = std::chrono::system_clock::now();
-        int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-        // std::cout << "Frame rate: " << 1000.0 / duration << std::endl;
-        last = now;
-
+        mainWindow.update(std::get<0>(tuple)->GetData(), std::get<1>(tuple).get());
+        mainWindow.spinOnce();
     }
 
     pthread_cancel(gpuThread);
@@ -352,9 +198,5 @@ int main(int argc, char* argv[])
     imageQueue2.clear();
 
     cam.close();
-
-    glfwDestroyWindow(frame);
-    glfwTerminate();
-
     return 0;
 }

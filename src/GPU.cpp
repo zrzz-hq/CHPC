@@ -129,7 +129,7 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
         goto updateBuffers;
     
     
-    compute_phase<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+    novak<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
