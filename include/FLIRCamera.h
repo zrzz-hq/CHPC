@@ -11,6 +11,7 @@ class FLIRCamera
 public:
   void getVersion();
   bool open(uint32_t devID);
+  std::vector<std::string> enumCamera();
   bool start();
   void stop();
   void close();

@@ -11,22 +11,47 @@ find_package(Boost REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 
-include_directories(include /opt/spinnaker/include/ ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${OpenGL_INCLUDE_DIRS})
+include_directories(
+    include 
+    /opt/spinnaker/include/ 
+    ${CUDA_INCLUDE_DIRS} 
+    ${OpenCV_INCLUDE_DIRS} 
+    ${Boost_INCLUDE_DIRS} 
+    ${OpenGL_INCLUDE_DIRS}
+    imgui
+)
 
 set(SPINNAKER_LIBS /opt/spinnaker/lib/libSpinnaker.so)
 
 set_source_files_properties(src/GPU.cpp PROPERTIES LANGUAGE CUDA)
+
+#ImGui Library
+add_library(imgui
+    imgui/imgui.cpp
+    imgui/imgui_draw.cpp
+    imgui/imgui_widgets.cpp
+    imgui/imgui_tables.cpp
+    imgui/backends/imgui_impl_glfw.cpp
+    imgui/backends/imgui_impl_opengl3.cpp
+)
+
+target_link_libraries(imgui OpenGL::GL glfw)
 # Add executable
-add_executable(spinnaker_example src/main.cpp src/FLIRCamera.cpp src/GPU.cpp src/kernel.cu)
+add_executable(PhaseVisualizer 
+    src/main.cpp 
+    src/FLIRCamera.cpp 
+    src/GPU.cpp 
+    src/kernel.cu 
+    src/ui.cpp
+)
 
 # Link Spinnaker library
-target_link_libraries(spinnaker_example 
+target_link_libraries(PhaseVisualizer 
     ${SPINNAKER_LIBS} 
     ${CUDA_LIBRARIES} 
     ${OpenCV_LIBS} 
     ${Boost_LIBRARIES} 
     OpenGL::GL 
-    glfw)
-
-# Include Spinnaker headers
-#target_include_directories(spinnaker_example PRIVATE ${Spinnaker_INCLUDE_DIRS})
+    glfw
+    imgui
+)

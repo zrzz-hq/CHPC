@@ -13,18 +13,7 @@ FLIRCamera::FLIRCamera()
         mFPS = 0;
         mSystem = System::GetInstance();
         mCamList = mSystem->GetCameras();
-        const unsigned int numCameras = mCamList.GetSize();
-        if (numCameras == 0)
-        {
-            // Clear camera list before releasing system
-            mCamList.Clear();
-
-            // Release system
-            mSystem->ReleaseInstance();
-            throw std::runtime_error("No camera dectected!\n");
-           
-        }
-        mCam = mCamList.GetByIndex(0);
+            
        // std::cout << "numCameras: " << numCameras << std::endl;
     }
     catch (Spinnaker::Exception& e)
@@ -32,13 +21,10 @@ FLIRCamera::FLIRCamera()
         std::cout << "Error: " << e.what() << std::endl;
         return;
     }
-
-    // mCam->TriggerSource.SetValue(Spinnaker::TriggerSourceEnums::TriggerSource_Software);
-    mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
-    mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_OldestFirstOverwrite);
 }
 
-FLIRCamera::~FLIRCamera(){
+FLIRCamera::~FLIRCamera()
+{
     stop();
     close();
 
@@ -49,7 +35,32 @@ FLIRCamera::~FLIRCamera(){
     mSystem->ReleaseInstance();
 }
 
-void FLIRCamera::getVersion(){
+std::vector<std::string> FLIRCamera::enumCamera()
+{
+    std::vector<std::string> cameraIds;
+    mCamList = mSystem->GetCameras();
+    for(size_t i=0;i<mCamList.GetSize();i++)
+    {
+        // mCamList[i]->Init();
+        INodeMap& map = mCamList[i]->GetTLDeviceNodeMap();
+
+        CStringPtr ptrModelName = map.GetNode("DeviceSerialNumber");
+        if(IsAvailable(ptrModelName) && IsReadable(ptrModelName))
+        {
+            cameraIds.push_back(ptrModelName->GetValue().c_str());
+            std::cout<< "Found camera: " << ptrModelName->GetValue() << std::endl;
+        }
+
+        // cameraIds.push_back(mCamList[i]->DeviceSerialNumber().c_str());
+        // std::cout<< "Found camera: " << mCamList[i]->DeviceSerialNumber() << std::endl;
+        // mCamList[i]->DeInit();
+    }
+
+    return cameraIds;
+}
+
+void FLIRCamera::getVersion()
+{
 SystemPtr system = System::GetInstance();
 LibraryVersion version = system->GetLibraryVersion();
 
@@ -58,8 +69,8 @@ std::cout << version.major << std::endl;
 
 bool FLIRCamera::open(uint32_t devID)
 {
-
- if(mCam == nullptr)
+    mCam = mCamList.GetByIndex(devID);
+    if(!mCam)
         return false;
 
     // Initialize camera
@@ -69,7 +80,7 @@ bool FLIRCamera::open(uint32_t devID)
     INodeMap& nodeMap = mCam->GetNodeMap();
     INodeMap& nodeMapTLDevice = mCam->GetTLDeviceNodeMap();
 
-      CIntegerPtr ptrInt = nodeMap.GetNode("Width");
+    CIntegerPtr ptrInt = nodeMap.GetNode("Width");
     if(IsAvailable(ptrInt))
     {
         mWidth = ptrInt->GetMax();
@@ -118,12 +129,13 @@ bool FLIRCamera::open(uint32_t devID)
 
 void FLIRCamera::close()
 {
-    mCam->DeInit();
+    if(mCam)
+        mCam->DeInit();
 }
 
 bool FLIRCamera::start()
 {
-    if(mCam -> IsStreaming())
+    if(mCam && mCam -> IsStreaming())
         return true;
     
     size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
@@ -152,14 +164,14 @@ bool FLIRCamera::start()
 
 void FLIRCamera::stop()
 {
-    if(mCam->IsStreaming())
+    if(mCam && mCam->IsStreaming())
     {
         mCam->EndAcquisition();
-    }
 
-    for(void* buffer : buffers)
-    {
-        cudaFree(buffer);
+        for(void* buffer : buffers)
+        {
+            cudaFree(buffer);
+        }
     }
 }
 

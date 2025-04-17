@@ -1,13 +1,12 @@
 #include "FLIRCamera.h"
 #include "GPU.h"
+#include "ui.h"
+
 #include <memory>
 #include <chrono>
 #include <queue>
 #include <fstream>
 #include <pthread.h>
-
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
 
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -110,16 +109,6 @@ void* cameraThreadFunc(void* arg)
     return 0;
 }
 
-// void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-// {
-//     int* userData = reinterpret_cast<int*>(glfwGetWindowUserPointer(window));
-//     if(action == GLFW_PRESS)
-//     {
-//         *userData = key;
-//     }
-
-// }
-
 void writeMatToCSV(const cv::Mat mat, const std::string& fileName){
     std::ofstream file(fileName);
 
@@ -167,9 +156,63 @@ int main(int argc, char* argv[])
         std::cout << "Failed to init glfw library" << std::endl;
         return -1;
     }
-
-    GPU gpu(width,height,50);
     FLIRCamera cam;
+    //Start up Window
+    
+    GLFWwindow* startupFrame = glfwCreateWindow(300, 200, "startupFrame", NULL, NULL);
+    
+    glfwMakeContextCurrent(startupFrame);
+    if(!startupFrame)
+    {
+        std::cout << "Failed to create the main window" << std::endl;
+        return -1;
+    }
+
+    StartupParameters startupParams;
+
+    std::vector<std::string> cameraIds = cam.enumCamera();
+    if(cameraIds.size() == 0)
+    {
+        //No cameras Detected
+        bool shouldClose = false;
+        UI ui(startupFrame, [&]{
+            errorUI(shouldClose);
+        });
+
+        while(!glfwWindowShouldClose(startupFrame) && !shouldClose)
+        {
+            glfwPollEvents();
+            ui.render();
+            glfwSwapBuffers(startupFrame);
+        }
+        glfwDestroyWindow(startupFrame);
+        glfwTerminate();
+        return 0;
+    }
+    else
+    {
+        startupParams.nDevices = cameraIds.size();
+        startupParams.deviceNames = new const char*[cameraIds.size()];
+        for(size_t i=0;i<cameraIds.size();i++)
+        {
+            startupParams.deviceNames[i] = cameraIds[i].c_str();
+        }
+
+        UI ui(startupFrame, [&]{
+            startupUI(startupParams);
+        });
+        //Cameras detected
+        while(!glfwWindowShouldClose(startupFrame))
+        {
+            glfwPollEvents();
+            ui.render();
+            glfwSwapBuffers(startupFrame);
+        }
+
+        glfwDestroyWindow(startupFrame);
+    }
+    //End Start Up Window
+    GPU gpu(width,height,50);
     cam.open(0);
     cam.setResolution(width,height);
     cam.setFPS(frameRate);
