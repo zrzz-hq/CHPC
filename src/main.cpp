@@ -21,63 +21,14 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
-std::deque<Spinnaker::ImagePtr> imageQueue1;
-pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
-
-
 std::deque<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
 
-void gpuThreadCleanUp(void* arg)
-{
-    std::cout << "gpu thread exited" << std::endl;
-}
-
-void* gpuThreadFunc(void* arg)
-{
-    pthread_cleanup_push(gpuThreadCleanUp, NULL);
-    GPU* gpu = reinterpret_cast<GPU*>(arg);
-
-    gpu->getCudaVersion();
-    auto last = std::chrono::system_clock::now();
-    while(1)
-    {
-        Spinnaker::ImagePtr imagePtr;
-        pthread_mutex_lock(&imageQueue1Mutex);
-
-        while(imageQueue1.size() == 0)
-            pthread_cond_wait(&imageQueue1Cond, &imageQueue1Mutex);
-
-        imagePtr = imageQueue1.back();
-        imageQueue1.clear();
-
-        pthread_mutex_unlock(&imageQueue1Mutex);
-
-        std::pair<std::shared_ptr<uint8_t>, std::shared_ptr<float>> pair = gpu->runNovak(imagePtr);
-        
-        pthread_mutex_lock(&imageQueue2Mutex);
-
-        imageQueue2.emplace_back(imagePtr, pair.first, pair.second);
-
-        pthread_cond_signal(&imageQueue2Cond);
-        pthread_mutex_unlock(&imageQueue2Mutex);
-
-        pthread_testcancel();
-
-        auto now = std::chrono::system_clock::now();
-        int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-        // std::cout << "Frame rate: " << 1000.0 / duration << std::endl;
-        last = now;
-    }
-    pthread_cleanup_pop(1);
-    return 0;
-}
-
 void cameraThreadCleanUp(void* arg)
 {
-    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
+    void** args = reinterpret_cast<void**>(arg);
+    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(args[0]);
 
     cam->stop();
 
@@ -86,22 +37,27 @@ void cameraThreadCleanUp(void* arg)
 
 void* cameraThreadFunc(void* arg)
 {
+    void** args = reinterpret_cast<void**>(arg);
     pthread_cleanup_push(cameraThreadCleanUp, arg);
-    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
+    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(args[0]);
+    GPU* gpu = reinterpret_cast<GPU*>(args[1]);
 
     cam->start();
     while(1)
     {
         Spinnaker::ImagePtr imagePtr = cam->read();
 
-        pthread_mutex_lock(&imageQueue1Mutex);
+        std::pair<std::shared_ptr<uint8_t>, std::shared_ptr<float>> pair = gpu->join();
 
-        imageQueue1.push_back(imagePtr);
+        pthread_mutex_lock(&imageQueue2Mutex);
 
-        pthread_cond_signal(&imageQueue1Cond);
-        pthread_mutex_unlock(&imageQueue1Mutex);
+        imageQueue2.emplace_back(imagePtr, pair.first, pair.second);
 
-        pthread_testcancel();
+        pthread_cond_signal(&imageQueue2Cond);
+        pthread_mutex_unlock(&imageQueue2Mutex);
+
+        if(imagePtr.IsValid())
+            gpu->run(imagePtr);
         
     }
 
@@ -167,15 +123,10 @@ int main(int argc, char* argv[])
     int width = cameraConfig->width->GetValue();
     int height = cameraConfig->height->GetValue();
     GPU gpu(width, height, 40);
-    pthread_t gpuThread;
-    if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
-    {
-        std::cout << "Failed to create GPU thread" << std::endl;
-        return 1;
-    }
 
     pthread_t cameraThread;
-    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, &cam) == -1)
+    void* args[2] = {&cam, &gpu};
+    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, args) == -1)
     {
         std::cout << "Failed to create camera thread" << std::endl;
         return 1;
@@ -211,13 +162,9 @@ int main(int argc, char* argv[])
         }
     }
 
-    pthread_cancel(gpuThread);
     pthread_cancel(cameraThread);
-
-    pthread_join(gpuThread, NULL);
     pthread_join(cameraThread, NULL);
 
-    imageQueue1.clear();
     imageQueue2.clear();
 
     cam.close();

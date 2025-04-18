@@ -104,23 +104,30 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnaker::ImagePtr newImage)
+std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::join()
 {
-    std::shared_ptr<uint8_t> phaseImage = nullptr;
-    std::shared_ptr<float> phaseMap = nullptr;
-    float* newImageDev = nullptr;
-    uint8_t* cosineBuffer = nullptr;
-    float* phaseBuffer = nullptr;
+    if(cosineBuffer == nullptr || phaseBuffer == nullptr)
+        return {nullptr, nullptr};
 
-    // cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N*sizeof(uint8_t), cudaMemcpyHostToDevice, stream1);
+    cudaError_t error = cudaDeviceSynchronize();
+    if(error != cudaSuccess)
+    {
+        std::cout << "Failed to run algorithm: " << cudaGetErrorString(error) << std::endl;
+        return {nullptr, nullptr};
+    }
 
-    // if(error != cudaSuccess)
-    // {
-    //     std::cout << "Failed to copy the image to gpu: " << cudaGetErrorString(error) << std::endl;
-    //     goto ret;
-    // }
+    auto phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
+    auto phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
 
-    newImageDev = buffers.back();
+    cosineBuffer = nullptr;
+    phaseBuffer = nullptr;
+
+    return {phaseImage, phaseMap};
+}
+
+void GPU::run(Spinnaker::ImagePtr newImage)
+{
+    float* newImageDev = buffers.back();
 
     convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
 
@@ -131,9 +138,15 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
     }
 
 
-    if(!cosineBuffers.pop(cosineBuffer) || !phaseBuffers.pop(phaseBuffer))
+    if(!cosineBuffers.pop(cosineBuffer))
         goto updateBuffers;
     
+    if(!phaseBuffers.pop(phaseBuffer))
+    {
+        cosineBuffers.push(cosineBuffer);
+        cosineBuffer = nullptr;
+        goto updateBuffers;
+    }
  
     switch (config->algorithmIndex)
     {
@@ -167,15 +180,10 @@ std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::runNovak(Spinnak
     default:
         break;
     }
-    phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
-    phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
 
 updateBuffers:    
     buffers.pop_back();
     buffers.push_front(newImageDev);
-ret:
-    cudaDeviceSynchronize();
-    return {phaseImage, phaseMap};
 }
 
 void GPU::cosineBufferDeleter(uint8_t* ptr)

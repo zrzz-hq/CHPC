@@ -44,7 +44,8 @@ public:
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>>  runNovak(Spinnaker::ImagePtr image);
+    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> join();
+    void run(Spinnaker::ImagePtr image);
 
 private:
 
@@ -60,6 +61,10 @@ private:
 
     boost::lockfree::queue<uint8_t*> cosineBuffers;
     boost::lockfree::queue<float*> phaseBuffers;
+
+    uint8_t* cosineBuffer = nullptr;
+    float* phaseBuffer = nullptr;
+
     std::deque<float*> buffers;
 
     void phaseBufferDeleter(float* ptr);

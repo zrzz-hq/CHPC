@@ -111,6 +111,7 @@ std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
     config->triggerSource = nodeMap.GetNode("TriggerSource");
 
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
+    mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_NewestOnly);
     mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
 
     return config;
