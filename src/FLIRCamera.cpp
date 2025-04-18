@@ -174,7 +174,7 @@ ImagePtr FLIRCamera::read()
         // std::cout << "Input buffer count: " << mCam->TLStream.StreamInputBufferCount.GetValue() << std::endl;
         // std::cout << "Lost buffer count: " << mCam->TLStream.StreamLostFrameCount.GetValue() << std::endl;
         // Retrieve next received image
-        pResultImage = mCam->GetNextImage();
+        pResultImage = mCam->GetNextImage(100);
 
         // Ensure image is complete
         if (pResultImage->IsIncomplete())

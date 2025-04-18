@@ -20,6 +20,8 @@ class WindowBase
     virtual int spin();
     void spinOnce();
     bool ok();
+    void setSize(size_t width, size_t height);
+    void setResizable(bool enable);
 
     protected:
     GLFWwindow* frame;

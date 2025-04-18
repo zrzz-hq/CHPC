@@ -60,6 +60,11 @@ WindowBase::~WindowBase()
 
 size_t WindowBase::windowCount = 0;
 
+void WindowBase::setSize(size_t width, size_t height)
+{
+    glfwSetWindowSize(frame, width, height);
+}
+
 void WindowBase::spinOnce()
 {
     glfwPollEvents();
@@ -143,7 +148,7 @@ void WindowBase::render()
 }
 
 StartupWindow::StartupWindow(std::shared_ptr<FLIRCamera::Config> config):
-    WindowBase(300, 250, "Options"),
+    WindowBase(300, 300, "Options"),
     config_(config)
 {
     getEnumerate(exposureModeEnum, config_->exposureMode);
@@ -194,12 +199,14 @@ void StartupWindow::render()
 
     int width = config_->width->GetValue();
     int height = config_->height->GetValue();
-    ImGui::Text("Width"); ImGui::SameLine(120);
+    int winWidth = ImGui::GetWindowWidth();
+    ImGui::PushItemWidth(-FLT_MIN);
+    ImGui::Text("Width"); ImGui::SameLine(winWidth/2);
     if(ImGui::InputInt("##Width", &width, 4))
     {
         IGNORE_SPINNAKER_ERROR(config_->width->SetValue(width));
     }
-    ImGui::Text("Height"); ImGui::SameLine(120);
+    ImGui::Text("Height"); ImGui::SameLine(winWidth/2);
     if(ImGui::InputInt("##Height", &height))
     {
         IGNORE_SPINNAKER_ERROR(config_->height->SetValue(height));
@@ -209,24 +216,23 @@ void StartupWindow::render()
 
     float frameRate = config_->frameRate->GetValue();
     ImGui::Text("Framerate");
-    ImGui::SameLine(120);
+    ImGui::SameLine(winWidth/2);
     if(ImGui::InputFloat("##Framerate", &frameRate))
     {
         config_->acquisitionFrameRateEnable->SetValue(true);//Might need to move this to trigger mode(continuous)
         IGNORE_SPINNAKER_ERROR(config_->frameRate->SetValue(frameRate));
     }
-
     ImGui::Separator();
 
     float exposureTime = config_->exposureTime->GetValue();
     int exposureModeIndex = config_->exposureMode->GetCurrentEntry()->GetValue();
-    ImGui::Text("Exposure Mode"); ImGui::SameLine(120);
+    ImGui::Text("Exposure Mode"); ImGui::SameLine(winWidth/2);
     if(ImGui::Combo("##ExposureMode", &exposureModeIndex, exposureModeEnum.first, exposureModeEnum.second))
     {
         CEnumEntryPtr entry = config_->exposureMode->GetEntryByName(exposureModeEnum.first[exposureModeIndex]);
         config_->exposureMode->SetIntValue(entry->GetValue());
     }
-    ImGui::Text("Exposure"); ImGui::SameLine(120);
+    ImGui::Text("Exposure"); ImGui::SameLine(winWidth/2);
     if(ImGui::InputFloat("##Exposure", &exposureTime) && IsWritable(config_->exposureTime))
     {
         IGNORE_SPINNAKER_ERROR(config_->exposureTime->SetValue(exposureTime));
@@ -235,14 +241,14 @@ void StartupWindow::render()
     ImGui::Separator();
     float gain = config_->gain->GetValue();
     int gainModeIndex = config_->gainMode->GetCurrentEntry()->GetValue();
-    ImGui::Text("Gain Mode"); ImGui::SameLine(120);
+    ImGui::Text("Gain Mode"); ImGui::SameLine(winWidth/2);
     if(ImGui::Combo("##GainMode", &gainModeIndex, gainModeEnum.first, gainModeEnum.second))
     {
         CEnumEntryPtr entry = config_->gainMode->GetEntryByName(gainModeEnum.first[gainModeIndex]);
         config_->gainMode->SetIntValue(entry->GetValue());
     }
 
-    ImGui::Text("Gain"); ImGui::SameLine(120);
+    ImGui::Text("Gain"); ImGui::SameLine(winWidth/2);
     if(ImGui::InputFloat("##Gain", &gain) && IsWritable(config_->gain))
     {
         IGNORE_SPINNAKER_ERROR(config_->gain->SetValue((double)gain));
@@ -252,39 +258,69 @@ void StartupWindow::render()
     
     int triggerModeIndex = config_->triggerMode->GetCurrentEntry()->GetValue();
     int triggerSourceIndex = config_->triggerSource->GetCurrentEntry()->GetValue();
-    ImGui::Text("Trigger Mode"); ImGui::SameLine(120); 
+    ImGui::Text("Trigger Mode"); ImGui::SameLine(winWidth/2); 
     if(ImGui::Combo("##TriggerMode", &triggerModeIndex, triggerModeEnum.first, triggerModeEnum.second))
     {
         CEnumEntryPtr entry = config_->triggerMode->GetEntryByName(triggerModeEnum.first[triggerModeIndex]);
         config_->triggerMode->SetIntValue(entry->GetValue());
     }
 
-    ImGui::Text("Trigger Source"); ImGui::SameLine(120);
+    ImGui::Text("Trigger Source"); ImGui::SameLine(winWidth/2);
     if(ImGui::Combo("##TriggerSource", &triggerSourceIndex, triggerSourceEnum.first, triggerSourceEnum.second) && IsWritable(config_->triggerSource))
     {
         CEnumEntryPtr entry = config_->triggerSource->GetEntryByName(triggerSourceEnum.first[triggerSourceIndex]);
         IGNORE_SPINNAKER_ERROR(config_->triggerSource->SetIntValue(entry->GetValue()));
     }
+    ImGui::PopItemWidth();
 
     ImGui::Separator();
-    if (ImGui::SmallButton("Show Info"))
-        showInfoWindow = true;
+    float availWidth = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().WindowPadding.x;
+    if (ImGui::Button(showInfoWindow ? "Hide Info" : "Show Info", ImVec2(availWidth/2 - 5, ImGui::GetFrameHeight())))
+    {
+        showInfoWindow = !showInfoWindow;
+    }
     
-    ImGui::SameLine();
-    if(ImGui::SmallButton("Start"))
+    ImGui::SameLine(winWidth/2 + 10);
+    if(ImGui::Button("Start", ImVec2(availWidth/2 - 5, ImGui::GetFrameHeight())))
     {
         exit(0);
     }
     
     if (showInfoWindow)
     {
-        ImGui::Begin("Info", &showInfoWindow, ImGuiWindowFlags_NoCollapse); // Pass the bool to let user close it
-        ImGui::Text("Max Width: %ld, Min Width %ld",config_->width->GetMax(),config_->width->GetMin());
-        ImGui::Text("Max Height: %ld, Min Height: %ld",config_->height->GetMax(),config_->height->GetMin());
-        ImGui::Text("Max Framerate: %f, Min Framerate: %f",config_->frameRate->GetMax(),config_->frameRate->GetMin());
-        ImGui::Text("Max Exposure Time: %f, Min Exposure Time: %f",config_->exposureTime->GetMax(),config_->exposureTime->GetMin());
-        ImGui::Text("Max Gain: %f, Min Gain: %f",config_->gain->GetMax(),config_->gain->GetMin());
-        ImGui::End();
+        ImGui::BeginTable("InfoTable", 3, ImGuiTableFlags_Borders|ImGuiTableFlags_SizingStretchSame);
+        
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Property"); 
+        ImGui::TableSetColumnIndex(1); ImGui::Text("Min");
+        ImGui::TableSetColumnIndex(2); ImGui::Text("Max");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Width");
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%ld", config_->width->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%ld", config_->width->GetMax());
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Height");
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%ld", config_->height->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%ld", config_->height->GetMax());
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Framerate");
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config_->frameRate->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config_->frameRate->GetMax());
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Exposure Time");
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config_->exposureTime->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config_->exposureTime->GetMax());
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0); ImGui::Text("Gain");
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config_->gain->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config_->gain->GetMax());
+        
+        ImGui::EndTable();
     }
     ImGui::End();
 }
@@ -339,15 +375,19 @@ void MainWindow::render()
     now = std::chrono::system_clock::now();
     int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
     last = now;
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    float leftWidth = avail.x * 0.20;
-    float rightWidth = avail.x * 0.80;
+    // ImVec2 avail = ImGui::GetContentRegionAvail();
+    // float leftWidth = std::min(avail.x * 0.20f, 300.0f);
+    // float rightWidth = avail.x - leftWidth;
     
-    ImGui::BeginChild("Left Panel", ImVec2(leftWidth, avail.y),true);
+    ImGui::BeginChild("Left Panel", ImVec2(300, 0),true);
 
     // Dropdown
-    ImGui::Text("Actual FrameRate: %f",(1000.0 / duration));//Measure actual framerate
-    ImGui::Text("Choose Phase Algorithm");
+    int childWidth = ImGui::GetWindowSize().x;
+    ImGui::PushItemWidth(-FLT_MIN);
+    ImGui::Text("Actual FrameRate"); ImGui::SameLine(childWidth/2);
+    ImGui::Text("%.1f", (1000.0 / duration));
+
+    ImGui::Text("Algorithm"); ImGui::SameLine(childWidth/2);
     int algorithmIndex = gpuConfig_->algorithmIndex;//static_cast<int>(algorithm.load());
     if(ImGui::Combo("##AlgorithmDropdown", &algorithmIndex, gpuConfig_->algorithmNames, gpuConfig_->nAlgorithms))
     {
@@ -357,14 +397,12 @@ void MainWindow::render()
     }
 
     ImGui::Separator();
-    ImGui::Text("Number of Images"); ImGui::SameLine(140);
-    ImGui::SetNextItemWidth(100);
+    ImGui::Text("Number of Images"); ImGui::SameLine(childWidth/2);
     if(ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1)){
         numSuccessiveImages = std::max(0,std::min(numSuccessiveImages, 10));
 
     }
-    ImGui::Text("File Name"); ImGui::SameLine(140);
-    ImGui::SetNextItemWidth(120);
+    ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
     ImGui::InputText("##File Name", textBuffer, IM_ARRAYSIZE(textBuffer));
     if (ImGui::Button("Save Phase Maps")) 
     {
@@ -372,12 +410,12 @@ void MainWindow::render()
         nSavedPhaseMap = numSuccessiveImages;
     }
 
-    //ImGui::SameLine();
+    ImGui::PopItemWidth();
     ImGui::EndChild();
 
     ImGui::SameLine();
     // ImGui::Spacing();
-    ImGui::BeginChild("Right Panel", ImVec2(rightWidth, avail.y), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild("Right Panel", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
 
     ImGui::Image((ImTextureID)frameTexture, ImVec2(width, height));
     ImGui::SameLine();

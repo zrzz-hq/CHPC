@@ -6,6 +6,7 @@
 #include <chrono>
 #include <queue>
 #include <fstream>
+#include <future>
 #include <pthread.h>
 
 #include <GL/gl.h>
@@ -110,25 +111,33 @@ void* cameraThreadFunc(void* arg)
     return 0;
 }
 
-void writeMatToCSV(const cv::Mat mat, const std::string& fileName){
-    std::ofstream file(fileName);
-
-    if (!file.is_open()){
-        std::cout << "Error: Could not write phase map to csv file\n";
-        return;
+void writeMatToCSV(std::shared_ptr<float> phaseMap, int width, int height, const std::string& fileName)
+{
+    cv::Mat phaseMat(height, width, CV_32F);
+    if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
+    {
+        std::cout << "Failed to copy data" << std::endl;
     }
+    else
+    {
+        std::ofstream file(fileName);
 
-    for (int i = 0; i < mat.rows; i++){
-        for (int j = 0; j < mat.cols; j++){
-            file << mat.at<float>(i, j);
-            if (j < mat.cols-1)
-                file << ',';
+        if (!file.is_open()){
+            std::cout << "Error: Could not write phase map to csv file\n";
+            return;
         }
-        file << '\n';
-    }
-    file.close();
-    std::cout << "Phase map saved to " << fileName << std::endl; 
 
+        for (int i = 0; i < phaseMat.rows; i++){
+            for (int j = 0; j < phaseMat.cols; j++){
+                file << phaseMat.at<float>(i, j);
+                if (j < phaseMat.cols-1)
+                    file << ',';
+            }
+            file << '\n';
+        }
+        file.close();
+        std::cout << "Phase map saved to " << fileName << std::endl; 
+    }
 }
 
 int main(int argc, char* argv[])
@@ -194,17 +203,9 @@ int main(int argc, char* argv[])
             std::shared_ptr<float> phaseMap = std::get<2>(tuple);
             if(phaseMap != nullptr)
             {
-                cv::Mat phaseMat(height, width, CV_32F);
-                if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
-                {
-                    std::cout << "Failed to copy data" << std::endl;
-                }
-                else
-                {
-                    std::string fileName = mainWindow.textBuffer;
-                    std::string filePath =  "/home/nvidia/images/";
-                    writeMatToCSV(phaseMat, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
-                }
+                std::string fileName = mainWindow.textBuffer;
+                std::string filePath =  "/home/nvidia/images/";
+                std::async(std::launch::async, writeMatToCSV, phaseMap, width, height, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
             }
             mainWindow.nSavedPhaseMap--;
         }
