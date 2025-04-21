@@ -197,7 +197,7 @@ ImagePtr FLIRCamera::read()
     }
     catch (Spinnaker::Exception& e)
     {
-        throw std::runtime_error("Spinnaker Error: " + std::string(e.what()));
+        // std::cout << "Get next image timeout: " + std::string(e.what()) << std::endl;
     }
 
     return std::move(pResultImage);

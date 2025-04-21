@@ -145,7 +145,9 @@ int main(int argc, char* argv[])
 
         pthread_mutex_unlock(&imageQueue2Mutex);
 
-        mainWindow.update(std::get<0>(tuple)->GetData(), std::get<1>(tuple).get());
+        auto phaseImage = std::get<1>(tuple);
+        auto image = std::get<0>(tuple);
+        mainWindow.update(image.IsValid() ? image->GetData() : nullptr, phaseImage ? phaseImage.get() : nullptr);
         mainWindow.spinOnce();
         
         if (mainWindow.nSavedPhaseMap > 0)

@@ -147,48 +147,21 @@ void WindowBase::render()
     ImGui::End();
 }
 
+
 StartupWindow::StartupWindow(std::shared_ptr<FLIRCamera::Config> config):
     WindowBase(300, 300, "Options"),
-    config_(config)
+    config_(config),
+    exposureModeEnum(config_->exposureMode),
+    triggerModeEnum(config_->triggerMode),
+    triggerSourceEnum(config_->triggerSource),
+    gainModeEnum(config_->gainMode)
 {
-    getEnumerate(exposureModeEnum, config_->exposureMode);
-    getEnumerate(triggerModeEnum, config_->triggerMode);
-    getEnumerate(triggerSourceEnum, config_->triggerSource);
-    getEnumerate(gainModeEnum, config_->gainMode);
-}
-
-void StartupWindow::getEnumerate(std::pair<char**, int>& penum, GenApi::CEnumerationPtr cenum)
-{
-    NodeList_t entries;
-    cenum->GetEntries(entries);
-    penum.first = new char*[entries.size()];
-    penum.second = entries.size();
-
-    for(size_t i=0;i<penum.second;i++)
-    {
-        auto entryName = static_cast<CEnumEntryPtr>(entries[i])->GetSymbolic();
-        penum.first[i] = new char[entryName.size() + 1];
-        std::strcpy(penum.first[i], entryName.c_str());
-    }
-
-}
-
-void StartupWindow::destroyEnumerate(std::pair<char**, int>& penum)
-{
-    for(size_t i=0;i<penum.second;i++)
-    {
-        delete[] penum.first[i];
-    }
-    delete[] penum.first;
-    penum.second = 0;
+    
 }
 
 StartupWindow::~StartupWindow()
 {
-    destroyEnumerate(exposureModeEnum);
-    destroyEnumerate(triggerModeEnum);
-    destroyEnumerate(triggerSourceEnum);
-    destroyEnumerate(gainModeEnum);
+    
 }
 
 void StartupWindow::render()
@@ -207,7 +180,7 @@ void StartupWindow::render()
         IGNORE_SPINNAKER_ERROR(config_->width->SetValue(width));
     }
     ImGui::Text("Height"); ImGui::SameLine(winWidth/2);
-    if(ImGui::InputInt("##Height", &height))
+    if(ImGui::InputInt("##Height", &height, 4))
     {
         IGNORE_SPINNAKER_ERROR(config_->height->SetValue(height));
     }
@@ -225,11 +198,13 @@ void StartupWindow::render()
     ImGui::Separator();
 
     float exposureTime = config_->exposureTime->GetValue();
-    int exposureModeIndex = config_->exposureMode->GetCurrentEntry()->GetValue();
+    int exposureModeIndex = exposureModeEnum.getValueByName(config_->exposureMode->GetCurrentEntry()->GetSymbolic().c_str());
     ImGui::Text("Exposure Mode"); ImGui::SameLine(winWidth/2);
-    if(ImGui::Combo("##ExposureMode", &exposureModeIndex, exposureModeEnum.first, exposureModeEnum.second))
+
+    auto [exposureModeNames, nExposureModes] = exposureModeEnum.getNames();
+    if(ImGui::Combo("##ExposureMode", &exposureModeIndex, exposureModeNames, nExposureModes))
     {
-        CEnumEntryPtr entry = config_->exposureMode->GetEntryByName(exposureModeEnum.first[exposureModeIndex]);
+        CEnumEntryPtr entry = config_->exposureMode->GetEntryByName(exposureModeNames[exposureModeIndex]);
         config_->exposureMode->SetIntValue(entry->GetValue());
     }
     ImGui::Text("Exposure"); ImGui::SameLine(winWidth/2);
@@ -240,11 +215,12 @@ void StartupWindow::render()
 
     ImGui::Separator();
     float gain = config_->gain->GetValue();
-    int gainModeIndex = config_->gainMode->GetCurrentEntry()->GetValue();
+    int gainModeIndex = gainModeEnum.getValueByName(config_->gainMode->GetCurrentEntry()->GetSymbolic().c_str());
+    auto [gainModeNames, nGainModes] = gainModeEnum.getNames();
     ImGui::Text("Gain Mode"); ImGui::SameLine(winWidth/2);
-    if(ImGui::Combo("##GainMode", &gainModeIndex, gainModeEnum.first, gainModeEnum.second))
+    if(ImGui::Combo("##GainMode", &gainModeIndex, gainModeNames, nGainModes))
     {
-        CEnumEntryPtr entry = config_->gainMode->GetEntryByName(gainModeEnum.first[gainModeIndex]);
+        CEnumEntryPtr entry = config_->gainMode->GetEntryByName(gainModeNames[gainModeIndex]);
         config_->gainMode->SetIntValue(entry->GetValue());
     }
 
@@ -256,19 +232,21 @@ void StartupWindow::render()
 
     ImGui::Separator();
     
-    int triggerModeIndex = config_->triggerMode->GetCurrentEntry()->GetValue();
-    int triggerSourceIndex = config_->triggerSource->GetCurrentEntry()->GetValue();
+    int triggerModeIndex = triggerModeEnum.getValueByName(config_->triggerMode->GetCurrentEntry()->GetSymbolic().c_str());
+    auto [triggerModeNames, nTriggerModes] = triggerModeEnum.getNames();
     ImGui::Text("Trigger Mode"); ImGui::SameLine(winWidth/2); 
-    if(ImGui::Combo("##TriggerMode", &triggerModeIndex, triggerModeEnum.first, triggerModeEnum.second))
+    if(ImGui::Combo("##TriggerMode", &triggerModeIndex, triggerModeNames, nTriggerModes))
     {
-        CEnumEntryPtr entry = config_->triggerMode->GetEntryByName(triggerModeEnum.first[triggerModeIndex]);
+        CEnumEntryPtr entry = config_->triggerMode->GetEntryByName(triggerModeNames[triggerModeIndex]);
         config_->triggerMode->SetIntValue(entry->GetValue());
     }
 
+    int triggerSourceIndex = triggerSourceEnum.getValueByName(config_->triggerSource->GetCurrentEntry()->GetSymbolic().c_str());
+    auto [triggerSourceNames, nTriggerSources] = triggerSourceEnum.getNames();
     ImGui::Text("Trigger Source"); ImGui::SameLine(winWidth/2);
-    if(ImGui::Combo("##TriggerSource", &triggerSourceIndex, triggerSourceEnum.first, triggerSourceEnum.second) && IsWritable(config_->triggerSource))
+    if(ImGui::Combo("##TriggerSource", &triggerSourceIndex, triggerSourceNames, nTriggerSources) && IsWritable(config_->triggerSource))
     {
-        CEnumEntryPtr entry = config_->triggerSource->GetEntryByName(triggerSourceEnum.first[triggerSourceIndex]);
+        CEnumEntryPtr entry = config_->triggerSource->GetEntryByName(triggerSourceNames[triggerSourceIndex]);
         IGNORE_SPINNAKER_ERROR(config_->triggerSource->SetIntValue(entry->GetValue()));
     }
     ImGui::PopItemWidth();
@@ -356,13 +334,20 @@ MainWindow::~MainWindow()
 
 void MainWindow::update(void* frameData, void* phaseData)
 {
-    glBindTexture(GL_TEXTURE_2D, frameTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, frameData);
+    if(frameData != nullptr)
+    {
+        glBindTexture(GL_TEXTURE_2D, frameTexture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, frameData);
+    }
 
     if(phaseData != nullptr)
     {
         glBindTexture(GL_TEXTURE_2D, phaseTexture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, phaseData);
+        
+        now = std::chrono::system_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        last = now;
     }
 }
 
@@ -372,9 +357,6 @@ void MainWindow::render()
     | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus ); 
 
-    now = std::chrono::system_clock::now();
-    int duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-    last = now;
     // ImVec2 avail = ImGui::GetContentRegionAvail();
     // float leftWidth = std::min(avail.x * 0.20f, 300.0f);
     // float rightWidth = avail.x - leftWidth;
@@ -424,37 +406,3 @@ void MainWindow::render()
     ImGui::EndChild();
     ImGui::End();
 }
-
-
-// ImGui::Begin("Main Panel", nullptr, ImGuiWindowFlags_AlwaysAutoResize
-//     | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
-//     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus ); 
-
-
-//     renderer();
-
-//     ImGui::End();
-
-// void mainUI(MainParameters& config_->) 
-// {
-//     ImGui::Begin("Side Panel", nullptr, ImGuiWindowFlags_NoResize); 
-
-//     // Dropdown
-//     ImGui::Text("Choose Phase Algorithm");    
-//     ImGui::Combo("##AlgorithmDropdown", &config_->.algorithmIndex, config_->.algorithms, config_->.nAlgorithms);
-
-//     ImGui::Separator();
-    
-//     ImGui::InputInt("Successive Images", &config_->.nSavedImages);
-
-//     if (ImGui::Button("Save Phase Maps")) 
-//     {
-//         config_->.onSaveImage();
-//     }
-
-//     ImGui::End();
-
-//     ImGui::SameLine();
-
-
-// }

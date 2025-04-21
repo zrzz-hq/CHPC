@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <unordered_map>
 
 #include "FLIRCamera.h"
 #include "GPU.h"
@@ -44,6 +45,52 @@ class ErrorWindow: public WindowBase
     void render() final;
 };
 
+class Enumerate
+{
+    public:
+    Enumerate(GenApi::CEnumerationPtr cenum)
+    {
+        GenApi::NodeList_t entries;
+        cenum->GetEntries(entries);
+        names = new const char*[entries.size()];
+
+        for(size_t i=0;i<entries.size();i++)
+        {
+            GenApi::CEnumEntryPtr entry = static_cast<GenApi::CEnumEntryPtr>(entries[i]);
+            auto entryName = entry ->GetSymbolic();
+
+            auto it = pairs.emplace(entryName.c_str(), i).first;
+
+            names[i] = it->first.c_str();
+        }
+    }
+
+    ~Enumerate()
+    {
+        free(names);
+    }
+
+    std::pair<const char**, size_t> getNames()
+    {
+        return {names, pairs.size()};
+    }
+
+    int getValueByName(const char* name)
+    {
+        auto it = pairs.find(name);
+        if(it == pairs.end())
+        {
+            return -1;
+        }
+
+        return it->second;
+    }
+
+    private:
+    const char** names;
+    std::unordered_map<std::string, int> pairs;
+};
+
 class StartupWindow: public WindowBase
 {
     public:
@@ -55,17 +102,14 @@ class StartupWindow: public WindowBase
     void render() final;
 
     private:
-    std::pair<char**, int> triggerSourceEnum;
-    std::pair<char**, int> triggerModeEnum;
-    std::pair<char**, int> exposureModeEnum;
-    std::pair<char**, int> gainModeEnum;
+    std::shared_ptr<FLIRCamera::Config> config_;
+
+    Enumerate triggerSourceEnum;
+    Enumerate triggerModeEnum;
+    Enumerate exposureModeEnum;
+    Enumerate gainModeEnum;
 
     bool showInfoWindow = false;
-
-    void getEnumerate(std::pair<char**, int>& penum, GenApi::CEnumerationPtr cenum);
-    void destroyEnumerate(std::pair<char**, int>& penum);
-
-    std::shared_ptr<FLIRCamera::Config> config_;
 };
 
 class MainWindow: public WindowBase
@@ -86,6 +130,7 @@ class MainWindow: public WindowBase
     
     std::chrono::_V2::system_clock::time_point now;
     std::chrono::_V2::system_clock::time_point last;
+    int duration = 0;
     int width;
     int height;
     
