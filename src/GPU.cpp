@@ -129,6 +129,7 @@ void GPU::run(Spinnaker::ImagePtr newImage)
 {
     float* newImageDev = buffers.back();
 
+    
     convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
 
     if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))

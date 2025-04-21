@@ -112,7 +112,7 @@ std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
 
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_NewestOnly);
-    mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
+    // mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
 
     return config;
 }
@@ -144,8 +144,8 @@ for(int i=0; i<userBufferNum; i++)
     buffers.push_back(hostBuffer);
 }
 
-mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
-mCam->BeginAcquisition();
+// mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
+// mCam->BeginAcquisition();
 
 std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
 std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;

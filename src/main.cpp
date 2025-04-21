@@ -147,8 +147,14 @@ int main(int argc, char* argv[])
 
         auto phaseImage = std::get<1>(tuple);
         auto image = std::get<0>(tuple);
-        mainWindow.update(image.IsValid() ? image->GetData() : nullptr, phaseImage ? phaseImage.get() : nullptr);
-        mainWindow.spinOnce();
+        if(image.IsValid())
+        {
+            mainWindow.updateFrame(image->GetData());
+        }
+        if(phaseImage != nullptr)
+        {
+            mainWindow.updatePhase(phaseImage.get());
+        }
         
         if (mainWindow.nSavedPhaseMap > 0)
         {
@@ -162,6 +168,8 @@ int main(int argc, char* argv[])
             }
             mainWindow.nSavedPhaseMap--;
         }
+
+        mainWindow.spinOnce();
     }
 
     pthread_cancel(cameraThread);

@@ -332,14 +332,17 @@ MainWindow::~MainWindow()
 
 }
 
-void MainWindow::update(void* frameData, void* phaseData)
+void MainWindow::updateFrame(void* frameData)
 {
     if(frameData != nullptr)
     {
         glBindTexture(GL_TEXTURE_2D, frameTexture);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, frameData);
     }
+}
 
+void MainWindow::updatePhase(void* phaseData)
+{
     if(phaseData != nullptr)
     {
         glBindTexture(GL_TEXTURE_2D, phaseTexture);

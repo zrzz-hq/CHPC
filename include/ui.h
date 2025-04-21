@@ -118,7 +118,8 @@ class MainWindow: public WindowBase
     MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig);
     ~MainWindow();
 
-    void update(void* frameData, void* phaseData);
+    void updateFrame(void* frameData);
+    void updatePhase(void* phaseData);
     void render() final;
     int nSavedPhaseMap = 0;
     int numSuccessiveImages = 1;
@@ -130,7 +131,7 @@ class MainWindow: public WindowBase
     
     std::chrono::_V2::system_clock::time_point now;
     std::chrono::_V2::system_clock::time_point last;
-    int duration = 0;
+    int duration = 100000;
     int width;
     int height;
     
