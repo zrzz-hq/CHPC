@@ -7,6 +7,8 @@
 #include <opencv4/opencv2/core.hpp>
 #include <algorithm>
 
+#include "buffer.h"
+
 using namespace Spinnaker;
 
 class FLIRCamera 

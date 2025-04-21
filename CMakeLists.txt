@@ -43,6 +43,7 @@ add_executable(PhaseVisualizer
     src/GPU.cpp 
     src/kernel.cu 
     src/ui.cpp
+    src/buffer.cpp
 )
 
 # Link Spinnaker library

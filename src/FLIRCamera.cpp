@@ -144,8 +144,8 @@ for(int i=0; i<userBufferNum; i++)
     buffers.push_back(hostBuffer);
 }
 
-// mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
-// mCam->BeginAcquisition();
+mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
+mCam->BeginAcquisition();
 
 std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
 std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;

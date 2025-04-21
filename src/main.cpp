@@ -21,7 +21,7 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
-std::deque<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> imageQueue2;
+std::deque<std::tuple<Spinnaker::ImagePtr, Buffer, Buffer>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
 
@@ -43,21 +43,23 @@ void* cameraThreadFunc(void* arg)
     GPU* gpu = reinterpret_cast<GPU*>(args[1]);
 
     cam->start();
+
+    std::pair<Buffer, Buffer> phase;
     while(1)
     {
         Spinnaker::ImagePtr imagePtr = cam->read();
 
-        std::pair<std::shared_ptr<uint8_t>, std::shared_ptr<float>> pair = gpu->join();
+        bool success = gpu->join();
 
         pthread_mutex_lock(&imageQueue2Mutex);
 
-        imageQueue2.emplace_back(imagePtr, pair.first, pair.second);
+        imageQueue2.emplace_back(imagePtr, phase.first, phase.second);
 
         pthread_cond_signal(&imageQueue2Cond);
         pthread_mutex_unlock(&imageQueue2Mutex);
 
         if(imagePtr.IsValid())
-            gpu->run(imagePtr);
+            phase = gpu->runAsync(imagePtr);
         
     }
 
@@ -67,15 +69,15 @@ void* cameraThreadFunc(void* arg)
     return 0;
 }
 
-void writeMatToCSV(std::shared_ptr<float> phaseMap, int width, int height, const std::string& fileName)
+void writeMatToCSV(Buffer phaseMap, const std::string& fileName)
 {
-    cv::Mat phaseMat(height, width, CV_32F);
-    if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
-    {
-        std::cout << "Failed to copy data" << std::endl;
-    }
-    else
-    {
+    cv::Mat phaseMat(phaseMap.getHeight(), phaseMap.getWidth(), CV_32F, phaseMap.get());
+    // if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
+    // {
+    //     std::cout << "Failed to copy data" << std::endl;
+    // }
+    // else
+    // {
         std::ofstream file(fileName);
 
         if (!file.is_open()){
@@ -93,7 +95,7 @@ void writeMatToCSV(std::shared_ptr<float> phaseMap, int width, int height, const
         }
         file.close();
         std::cout << "Phase map saved to " << fileName << std::endl; 
-    }
+    // }
 }
 
 int main(int argc, char* argv[])
@@ -134,13 +136,12 @@ int main(int argc, char* argv[])
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
     while(mainWindow.ok())
     {
-        std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
 
         pthread_mutex_lock(&imageQueue2Mutex);
         while(imageQueue2.size() == 0)
             pthread_cond_wait(&imageQueue2Cond, &imageQueue2Mutex);
 
-        tuple = std::move(imageQueue2.back());
+        std::tuple<Spinnaker::ImagePtr, Buffer, Buffer> tuple = std::move(imageQueue2.back());
         imageQueue2.clear();
 
         pthread_mutex_unlock(&imageQueue2Mutex);
@@ -151,7 +152,7 @@ int main(int argc, char* argv[])
         {
             mainWindow.updateFrame(image->GetData());
         }
-        if(phaseImage != nullptr)
+        if(phaseImage.isVaild())
         {
             mainWindow.updatePhase(phaseImage.get());
         }
@@ -159,13 +160,12 @@ int main(int argc, char* argv[])
         if (mainWindow.nSavedPhaseMap > 0)
         {
             //Save Phase Maps
-            std::shared_ptr<float> phaseMap = std::get<2>(tuple);
-            if(phaseMap != nullptr)
-            {
-                std::string fileName = mainWindow.textBuffer;
-                std::string filePath =  "/home/nvidia/images/";
-                std::async(std::launch::async, writeMatToCSV, phaseMap, width, height, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
-            }
+            Buffer phaseMap = std::get<1>(tuple);
+
+            std::string fileName = mainWindow.textBuffer;
+            std::string filePath =  "/home/nvidia/images/";
+            writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
+
             mainWindow.nSavedPhaseMap--;
         }
 

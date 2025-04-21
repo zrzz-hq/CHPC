@@ -104,32 +104,37 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::join()
+bool GPU::join()
 {
-    if(cosineBuffer == nullptr || phaseBuffer == nullptr)
-        return {nullptr, nullptr};
+    cudaError_t error = cudaStreamSynchronize(stream1);
+    if(error != cudaSuccess)
+    {
+        std::cout << "Failed to convert pixel format: " << cudaGetErrorString(error) << std::endl;
+        return false;
+    }
 
-    cudaError_t error = cudaDeviceSynchronize();
+    error = cudaStreamSynchronize(stream2);
     if(error != cudaSuccess)
     {
         std::cout << "Failed to run algorithm: " << cudaGetErrorString(error) << std::endl;
-        return {nullptr, nullptr};
+        return false;
     }
 
-    auto phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
-    auto phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
-
-    cosineBuffer = nullptr;
-    phaseBuffer = nullptr;
-
-    return {phaseImage, phaseMap};
+    return true;
 }
 
-void GPU::run(Spinnaker::ImagePtr newImage)
+std::pair<Buffer, Buffer> GPU::runAsync(Spinnaker::ImagePtr newImage)
 {
     float* newImageDev = buffers.back();
 
-    
+    int width = newImage->GetWidth();
+    int height = newImage->GetHeight();
+    Buffer phaseImage(width, height, sizeof(uint8_t) * 3 * 8);
+    Buffer phaseMap(width, height, sizeof(float) * 8);
+
+    uint8_t* phaseImageBuffer = reinterpret_cast<uint8_t*>(phaseImage.get());
+    float* phaseMapBuffer = reinterpret_cast<float*>(phaseMap.get());
+
     convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
 
     if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))
@@ -157,8 +162,8 @@ void GPU::run(Spinnaker::ImagePtr newImage)
                                         buffers[2],
                                         buffers[3],
                                         buffers[4],
-                                        phaseBuffer,
-                                        cosineBuffer,
+                                        phaseMapBuffer,
+                                        phaseImageBuffer,
                                         N);
         break;
     case 1:
@@ -166,8 +171,8 @@ void GPU::run(Spinnaker::ImagePtr newImage)
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
-                                        phaseBuffer,
-                                        cosineBuffer,
+                                        phaseMapBuffer,
+                                        phaseImageBuffer,
                                         N);
         break;
     case 2:
@@ -175,8 +180,8 @@ void GPU::run(Spinnaker::ImagePtr newImage)
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
-                                        phaseBuffer,
-                                        cosineBuffer,
+                                        phaseMapBuffer,
+                                        phaseImageBuffer,
                                         N);
     default:
         break;
@@ -185,6 +190,8 @@ void GPU::run(Spinnaker::ImagePtr newImage)
 updateBuffers:    
     buffers.pop_back();
     buffers.push_front(newImageDev);
+
+    return {phaseMap, phaseImage};
 }
 
 void GPU::cosineBufferDeleter(uint8_t* ptr)

@@ -12,6 +12,8 @@
 
 #include <boost/lockfree/queue.hpp>
 
+#include "buffer.h"
+
 // #ifdef _cplusplus
 // extern "C" {
 // #endif
@@ -26,13 +28,6 @@ __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase,
 class GPU
 {
 public:
-    // enum class PhaseAlgorithm
-    // {
-    //     NOVAK = 0,
-    //     FOURPOINT = 1,
-    //     CARRE = 2
-    // };
-
     struct Config
     {
         int algorithmIndex = 2;
@@ -44,8 +39,8 @@ public:
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> join();
-    void run(Spinnaker::ImagePtr image);
+    bool join();
+    std::pair<Buffer, Buffer> runAsync(Spinnaker::ImagePtr image);
 
 private:
 
