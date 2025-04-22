@@ -81,6 +81,12 @@ std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
     INodeMap& nodeMap = mCam->GetNodeMap();
     INodeMap& nodeMapTLDevice = mCam->GetTLDeviceNodeMap();
 
+    // CCommandPtr deviceReset = nodeMap.GetNode("DeviceReset");
+    // if(IsAvailable(deviceReset) && IsWritable(deviceReset))
+    // {
+    //     deviceReset->Execute();
+    // }
+
     config->width = nodeMap.GetNode("Width");
     if(IsAvailable(config->width))
     {
@@ -112,7 +118,7 @@ std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
 
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_NewestOnly);
-    // mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
+    mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
 
     return config;
 }

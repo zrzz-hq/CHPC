@@ -44,22 +44,26 @@ void* cameraThreadFunc(void* arg)
 
     cam->start();
 
-    std::pair<Buffer, Buffer> phase;
+    std::shared_ptr<GPU::Future> future;
     while(1)
     {
         Spinnaker::ImagePtr imagePtr = cam->read();
 
-        bool success = gpu->join();
+        bool success = future == nullptr ? false : future->join();
 
-        pthread_mutex_lock(&imageQueue2Mutex);
+        if(success)
+        {
+            pthread_mutex_lock(&imageQueue2Mutex);
 
-        imageQueue2.emplace_back(imagePtr, phase.first, phase.second);
+            auto [phaseMap, phaseImage] = future->getResult();
+            imageQueue2.emplace_back(imagePtr, phaseMap, phaseImage);
 
-        pthread_cond_signal(&imageQueue2Cond);
-        pthread_mutex_unlock(&imageQueue2Mutex);
+            pthread_cond_signal(&imageQueue2Cond);
+            pthread_mutex_unlock(&imageQueue2Mutex);
+        }
 
         if(imagePtr.IsValid())
-            phase = gpu->runAsync(imagePtr);
+            future = gpu->runAsync(imagePtr);
         
     }
 
@@ -124,7 +128,7 @@ int main(int argc, char* argv[])
 
     int width = cameraConfig->width->GetValue();
     int height = cameraConfig->height->GetValue();
-    GPU gpu(width, height, 40);
+    GPU gpu(width, height);
 
     pthread_t cameraThread;
     void* args[2] = {&cam, &gpu};
@@ -146,7 +150,7 @@ int main(int argc, char* argv[])
 
         pthread_mutex_unlock(&imageQueue2Mutex);
 
-        auto phaseImage = std::get<1>(tuple);
+        auto phaseImage = std::get<2>(tuple);
         auto image = std::get<0>(tuple);
         if(image.IsValid())
         {
@@ -160,7 +164,7 @@ int main(int argc, char* argv[])
         if (mainWindow.nSavedPhaseMap > 0)
         {
             //Save Phase Maps
-            Buffer phaseMap = std::get<1>(tuple);
+            Buffer phaseMap = std::get<2>(tuple);
 
             std::string fileName = mainWindow.textBuffer;
             std::string filePath =  "/home/nvidia/images/";

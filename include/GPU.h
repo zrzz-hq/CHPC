@@ -35,12 +35,59 @@ public:
         int nAlgorithms = 3;
     };
 
-    GPU(int width, int height, size_t nPhaseBuffers);
+    class Future
+    {
+        public:
+        friend class GPU;
+        ~Future(){}
+
+        std::pair<Buffer, Buffer> getResult()
+        {
+            return {phaseMap, phaseImage};
+        }
+
+        bool join()
+        {
+            if(expired)
+                return false;
+            
+            expired = true;
+            
+            cudaError_t error = cudaStreamSynchronize(stream);
+            if(error != cudaSuccess)
+            {
+                std::cout << "Cuda error: " << cudaGetErrorString(error) << std::endl;
+                cudaDeviceReset();
+                return false;
+            }
+
+            if(!phaseMap.isVaild() || !phaseImage.isVaild())
+                return false;
+
+            return true;
+        }
+
+        private:
+
+        Buffer phaseMap;
+        Buffer phaseImage;
+        cudaStream_t stream;
+        bool expired;
+
+        Future(Buffer phaseMap, Buffer phaseImage, cudaStream_t stream):
+            phaseMap(phaseMap),
+            phaseImage(phaseImage),
+            stream(stream)
+        {
+            expired = false;
+        }
+    };
+
+    GPU(int width, int height);
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    bool join();
-    std::pair<Buffer, Buffer> runAsync(Spinnaker::ImagePtr image);
+    std::shared_ptr<Future> runAsync(Spinnaker::ImagePtr image);
 
 private:
 
@@ -54,16 +101,7 @@ private:
     cudaStream_t stream1;
     cudaStream_t stream2;
 
-    boost::lockfree::queue<uint8_t*> cosineBuffers;
-    boost::lockfree::queue<float*> phaseBuffers;
-
-    uint8_t* cosineBuffer = nullptr;
-    float* phaseBuffer = nullptr;
-
     std::deque<float*> buffers;
-
-    void phaseBufferDeleter(float* ptr);
-    void cosineBufferDeleter(uint8_t* ptr);
     std::shared_ptr<Config> config;
 
 };

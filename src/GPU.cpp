@@ -1,8 +1,6 @@
 #include "GPU.h"
 
-GPU::GPU(int width, int height, size_t nPhaseBuffers):
-    cosineBuffers(nPhaseBuffers),
-    phaseBuffers(nPhaseBuffers),
+GPU::GPU(int width, int height):
     config(std::make_shared<GPU::Config>())
 {
     eleCount = 0;
@@ -11,17 +9,6 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     blockPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
 
     cudaError_t error;
-
-    for(int i=0; i<nPhaseBuffers; i++)
-    {
-        float* phaseBuffer;
-        error = cudaMalloc(&phaseBuffer, N*sizeof(float));
-        if(error != cudaSuccess)
-        {
-            throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
-        }
-        phaseBuffers.push(phaseBuffer);
-    }
 
     error = cudaMalloc(&imageBuffer, N*sizeof(uint8_t));
     if(error != cudaSuccess)
@@ -38,18 +25,6 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
             throw std::runtime_error("Failed to allocate image buffer: " + std::string(cudaGetErrorString(error)));
         }
         buffers.push_back(buffer);
-    }
-
-    for(int i=0; i<nPhaseBuffers; i++)
-    {
-        uint8_t* cosineBuffer;
-        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t)*3, cudaMemAttachHost);
-        // error = cudaMallocHost(&cosineBuffer, N*sizeof(uint8_t)*3);
-        if(error != cudaSuccess)
-        {
-            throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
-        }
-        cosineBuffers.push(cosineBuffer);
     }
 
     error = cudaStreamCreate(&stream1);
@@ -71,13 +46,10 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     std::cout << "Maximum threads per SM: " << prop.maxThreadsPerMultiProcessor << std::endl;
     std::cout << "Maximum threads per block: " << prop.maxThreadsPerBlock << std::endl;
     std::cout << "Maximum grid size: (" << prop.maxGridSize[0] << "," << prop.maxGridSize[1] << "," << prop.maxGridSize[2] << ")" << std::endl;
-
-    // pthread_mutex_init(&cosineBufferMutex, NULL);
 };
 
 GPU::~GPU()
 {
-    // cudaFree(cosineHostBuffer);
     cudaFree(imageBuffer);
     while(buffers.size() > 0)
     {
@@ -104,26 +76,26 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-bool GPU::join()
-{
-    cudaError_t error = cudaStreamSynchronize(stream1);
-    if(error != cudaSuccess)
-    {
-        std::cout << "Failed to convert pixel format: " << cudaGetErrorString(error) << std::endl;
-        return false;
-    }
+// bool GPU::join()
+// {
+//     cudaError_t error = cudaStreamSynchronize(stream1);
+//     if(error != cudaSuccess)
+//     {
+//         std::cout << "Failed to convert pixel format: " << cudaGetErrorString(error) << std::endl;
+//         return false;
+//     }
 
-    error = cudaStreamSynchronize(stream2);
-    if(error != cudaSuccess)
-    {
-        std::cout << "Failed to run algorithm: " << cudaGetErrorString(error) << std::endl;
-        return false;
-    }
+//     error = cudaStreamSynchronize(stream2);
+//     if(error != cudaSuccess)
+//     {
+//         std::cout << "Failed to run algorithm: " << cudaGetErrorString(error) << std::endl;
+//         return false;
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-std::pair<Buffer, Buffer> GPU::runAsync(Spinnaker::ImagePtr newImage)
+std::shared_ptr<GPU::Future> GPU::runAsync(Spinnaker::ImagePtr newImage)
 {
     float* newImageDev = buffers.back();
 
@@ -132,10 +104,16 @@ std::pair<Buffer, Buffer> GPU::runAsync(Spinnaker::ImagePtr newImage)
     Buffer phaseImage(width, height, sizeof(uint8_t) * 3 * 8);
     Buffer phaseMap(width, height, sizeof(float) * 8);
 
-    uint8_t* phaseImageBuffer = reinterpret_cast<uint8_t*>(phaseImage.get());
-    float* phaseMapBuffer = reinterpret_cast<float*>(phaseMap.get());
+    uint8_t* phaseImageBuffer;
+    float* phaseMapBuffer;
 
     convert_type<<<blockPerGrid,threadPerBlock, 0, stream1>>>(reinterpret_cast<uint8_t*>(newImage->GetData()), newImageDev, N);
+
+    // cudaError_t error = cudaStreamSynchronize(stream1);
+    // if(error != cudaSuccess)
+    // {
+    //     std::cout << "cuda error: " << cudaGetErrorString(error) << std::endl;
+    // }
 
     if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))
     {
@@ -144,15 +122,11 @@ std::pair<Buffer, Buffer> GPU::runAsync(Spinnaker::ImagePtr newImage)
     }
 
 
-    if(!cosineBuffers.pop(cosineBuffer))
+    if(!phaseImage.isVaild() || !phaseImage.isVaild())
         goto updateBuffers;
-    
-    if(!phaseBuffers.pop(phaseBuffer))
-    {
-        cosineBuffers.push(cosineBuffer);
-        cosineBuffer = nullptr;
-        goto updateBuffers;
-    }
+
+    phaseImageBuffer = reinterpret_cast<uint8_t*>(phaseImage.get());
+    phaseMapBuffer = reinterpret_cast<float*>(phaseMap.get());
  
     switch (config->algorithmIndex)
     {
@@ -191,23 +165,5 @@ updateBuffers:
     buffers.pop_back();
     buffers.push_front(newImageDev);
 
-    return {phaseMap, phaseImage};
-}
-
-void GPU::cosineBufferDeleter(uint8_t* ptr)
-{
-    if(ptr != nullptr && !cosineBuffers.push(ptr))
-    {
-        cudaFree(ptr);
-    }
-    
-}
-
-void GPU::phaseBufferDeleter(float* ptr)
-{
-    if(ptr != nullptr && !phaseBuffers.push(ptr))
-    {
-        cudaFree(ptr);
-    }
-    
+    return std::shared_ptr<Future>(new Future(phaseMap, phaseImage, stream2));
 }

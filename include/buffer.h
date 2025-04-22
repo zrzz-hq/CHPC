@@ -5,19 +5,33 @@
 #include <unordered_map>
 #include <queue>
 #include <mutex>
-#include <condition_variable>
+#include <atomic>
 
 class Buffer
 {
     public:
 
-    Buffer(){};
     Buffer(size_t width, size_t height, size_t pixelBits, size_t alignBytes=1);
-    Buffer(const Buffer& buffer){this->impl = buffer.impl;}
-    Buffer(Buffer&& buffer){this->impl=std::move(buffer.impl);}
-    Buffer& operator=(const Buffer& buffer) {this->impl = buffer.impl; return *this;}
-    Buffer& operator=(Buffer&& buffer) {this->impl = std::move(buffer.impl); return *this;}
-    ~Buffer() = default;
+    Buffer(const Buffer& buffer)
+    {
+        this->impl = buffer.impl;
+    }
+    Buffer(Buffer&& buffer)
+    {
+        this->impl = std::move(buffer.impl);
+    }
+
+    Buffer& operator=(const Buffer& buffer)
+    {
+        this->impl = buffer.impl;
+        return *this;
+    }
+    Buffer& operator=(Buffer&& buffer) 
+    {
+        this->impl = std::move(buffer.impl); 
+        return *this;
+    }
+    ~Buffer();
 
     bool isVaild() {return impl != nullptr;}
     void* get(); 
@@ -26,9 +40,16 @@ class Buffer
     size_t getHeight();
 
     private:
-    struct Impl;
+    struct Impl
+    {
+        size_t width;
+        size_t height;
+        size_t pixelBits;
+        size_t byteSize;
+    };
+
     std::shared_ptr<Impl> impl;
 
-    static std::unordered_map<size_t, std::queue<void*>> pool;
+    static std::unordered_map<size_t, std::queue<Impl*>> pool;
     static std::mutex poolMutex;
 };
