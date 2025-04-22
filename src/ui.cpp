@@ -266,8 +266,9 @@ void StartupWindow::render()
     
     if (showInfoWindow)
     {
+        ImGui::Text("Version: 1.0");
         ImGui::BeginTable("InfoTable", 3, ImGuiTableFlags_Borders|ImGuiTableFlags_SizingStretchSame);
-        
+
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0); ImGui::Text("Property"); 
         ImGui::TableSetColumnIndex(1); ImGui::Text("Min");
@@ -379,6 +380,14 @@ void MainWindow::render()
         //algorithm = static_cast<GPU::PhaseAlgorithm>(selectedAlgorithm);
         gpuConfig_->algorithmIndex = algorithmIndex;
         // std::cout << "Currently Selected Algorithm: " << selectedAlgorithm << std::endl;
+    }
+
+    ImGui::Text("Buffer Mode"); ImGui::SameLine(childWidth/2);
+    int bufferModeIndex = gpuConfig_->bufferMode;
+    const char* options[] = { "Sliding Window", "New Set" };
+    if(ImGui::Combo("##BufferModeDropdown", &bufferModeIndex, options, IM_ARRAYSIZE(options)))
+    {
+        gpuConfig_->bufferMode = bufferModeIndex;
     }
 
     ImGui::Separator();

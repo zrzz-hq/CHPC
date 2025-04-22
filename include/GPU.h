@@ -33,12 +33,14 @@ public:
         int algorithmIndex = 2;
         const char* algorithmNames[3] = {"Novak", "FourPoints", "Carre"};
         int nAlgorithms = 3;
+        bool bufferMode = false;
     };
 
     class Future
     {
         public:
         friend class GPU;
+        Future(){}
         ~Future(){}
 
         std::pair<Buffer, Buffer> getResult()
@@ -72,7 +74,7 @@ public:
         Buffer phaseMap;
         Buffer phaseImage;
         cudaStream_t stream;
-        bool expired;
+        bool expired = true;
 
         Future(Buffer phaseMap, Buffer phaseImage, cudaStream_t stream):
             phaseMap(phaseMap),

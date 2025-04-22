@@ -153,9 +153,6 @@ int main(int argc, char* argv[])
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
     while(mainWindow.ok())
     {
-
-        std::optional<std::tuple<Spinnaker::ImagePtr, Buffer, Buffer>> tuple = std::nullopt;
-
         Spinnaker::ImagePtr image;
 
         {
@@ -201,7 +198,6 @@ int main(int argc, char* argv[])
         }
 
         mainWindow.spinOnce();
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 
     pthread_cancel(cameraThread);
