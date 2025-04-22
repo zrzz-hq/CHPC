@@ -8,6 +8,7 @@
 #include <fstream>
 #include <future>
 #include <pthread.h>
+#include <mutex>
 
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -21,9 +22,13 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
-std::deque<std::tuple<Spinnaker::ImagePtr, Buffer, Buffer>> imageQueue2;
-pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
+Spinnaker::ImagePtr imageBuffer;
+Buffer phaseImageBuffer;
+Buffer phaseMapBuffer;
+
+std::mutex imageMutex;
+std::mutex phaseImageMutex;
+std::mutex phaseMapMutex;
 
 void cameraThreadCleanUp(void* arg)
 {
@@ -53,17 +58,25 @@ void* cameraThreadFunc(void* arg)
 
         if(success)
         {
-            pthread_mutex_lock(&imageQueue2Mutex);
-
             auto [phaseMap, phaseImage] = future->getResult();
-            imageQueue2.emplace_back(imagePtr, phaseMap, phaseImage);
-
-            pthread_cond_signal(&imageQueue2Cond);
-            pthread_mutex_unlock(&imageQueue2Mutex);
+            {
+                std::lock_guard guard(phaseMapMutex);
+                phaseMapBuffer = phaseMap;
+            }
+            {
+                std::lock_guard guard(phaseImageMutex);
+                phaseImageBuffer = phaseImage;
+            }
         }
 
         if(imagePtr.IsValid())
+        {
+            {
+                std::lock_guard guard(imageMutex);
+                imageBuffer = imagePtr;
+            }
             future = gpu->runAsync(imagePtr);
+        }
         
     }
 
@@ -141,21 +154,27 @@ int main(int argc, char* argv[])
     while(mainWindow.ok())
     {
 
-        pthread_mutex_lock(&imageQueue2Mutex);
-        while(imageQueue2.size() == 0)
-            pthread_cond_wait(&imageQueue2Cond, &imageQueue2Mutex);
+        std::optional<std::tuple<Spinnaker::ImagePtr, Buffer, Buffer>> tuple = std::nullopt;
 
-        std::tuple<Spinnaker::ImagePtr, Buffer, Buffer> tuple = std::move(imageQueue2.back());
-        imageQueue2.clear();
+        Spinnaker::ImagePtr image;
 
-        pthread_mutex_unlock(&imageQueue2Mutex);
+        {
+            std::lock_guard guard(imageMutex);
+            image = std::move(imageBuffer);
+        }
 
-        auto phaseImage = std::get<2>(tuple);
-        auto image = std::get<0>(tuple);
         if(image.IsValid())
         {
             mainWindow.updateFrame(image->GetData());
         }
+
+        Buffer phaseImage;
+
+        {
+            std::lock_guard guard(phaseImageMutex);
+            phaseImage = std::move(phaseImageBuffer);
+        }
+
         if(phaseImage.isVaild())
         {
             mainWindow.updatePhase(phaseImage.get());
@@ -164,22 +183,29 @@ int main(int argc, char* argv[])
         if (mainWindow.nSavedPhaseMap > 0)
         {
             //Save Phase Maps
-            Buffer phaseMap = std::get<2>(tuple);
+            Buffer phaseMap;
 
-            std::string fileName = mainWindow.textBuffer;
-            std::string filePath =  "/home/nvidia/images/";
-            writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
+            {
+                std::lock_guard guard(phaseMapMutex);
+                phaseMap = std::move(phaseMapBuffer);
+            }
 
-            mainWindow.nSavedPhaseMap--;
+            if(phaseMap.isVaild())
+            {
+                std::string fileName = mainWindow.textBuffer;
+                std::string filePath =  "/home/nvidia/images/";
+                writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
+
+                mainWindow.nSavedPhaseMap--;
+            }
         }
 
         mainWindow.spinOnce();
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 
     pthread_cancel(cameraThread);
     pthread_join(cameraThread, NULL);
-
-    imageQueue2.clear();
 
     cam.close();
     return 0;

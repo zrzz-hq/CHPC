@@ -7,11 +7,41 @@
 #include <mutex>
 #include <atomic>
 
+#include <boost/lockfree/queue.hpp>
+
+
+struct BufferDesc
+{
+    size_t width;
+    size_t height;
+    size_t pixelBits;
+    size_t alignBytes = 1;
+};
+
+class Buffer;
+
+class BufferPool
+{
+    public:
+    friend class Buffer;
+    BufferPool(const BufferDesc& desc, size_t nBuffers);
+    ~BufferPool();
+    
+    private:
+    size_t width;
+    size_t height;
+    size_t pixelBits;
+    size_t byteSize;
+    void* buffers;
+    boost::lockfree::queue<size_t> queue;
+};
+
 class Buffer
 {
     public:
-
-    Buffer(size_t width, size_t height, size_t pixelBits, size_t alignBytes=1);
+    Buffer(){}
+    Buffer(std::shared_ptr<BufferPool> pool);
+    
     Buffer(const Buffer& buffer)
     {
         this->impl = buffer.impl;
@@ -40,16 +70,12 @@ class Buffer
     size_t getHeight();
 
     private:
+
     struct Impl
     {
-        size_t width;
-        size_t height;
-        size_t pixelBits;
-        size_t byteSize;
+        std::shared_ptr<BufferPool> pool;
+        size_t id;
     };
 
     std::shared_ptr<Impl> impl;
-
-    static std::unordered_map<size_t, std::queue<Impl*>> pool;
-    static std::mutex poolMutex;
 };

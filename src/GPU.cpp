@@ -1,6 +1,6 @@
 #include "GPU.h"
 
-GPU::GPU(int width, int height):
+GPU::GPU(size_t width, size_t height):
     config(std::make_shared<GPU::Config>())
 {
     eleCount = 0;
@@ -39,6 +39,9 @@ GPU::GPU(int width, int height):
         throw std::runtime_error("Failed to create cuda stream 2: "+ std::string(cudaGetErrorString(error)));
     }
 
+    phaseImagePool = std::make_shared<BufferPool>(BufferDesc{width, height, sizeof(uint8_t) * 3 * 8}, 40);
+    phaseMapPool = std::make_shared<BufferPool>(BufferDesc{width, height, sizeof(float) * 8}, 40);
+
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 
@@ -76,33 +79,14 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-// bool GPU::join()
-// {
-//     cudaError_t error = cudaStreamSynchronize(stream1);
-//     if(error != cudaSuccess)
-//     {
-//         std::cout << "Failed to convert pixel format: " << cudaGetErrorString(error) << std::endl;
-//         return false;
-//     }
-
-//     error = cudaStreamSynchronize(stream2);
-//     if(error != cudaSuccess)
-//     {
-//         std::cout << "Failed to run algorithm: " << cudaGetErrorString(error) << std::endl;
-//         return false;
-//     }
-
-//     return true;
-// }
-
 std::shared_ptr<GPU::Future> GPU::runAsync(Spinnaker::ImagePtr newImage)
 {
     float* newImageDev = buffers.back();
 
     int width = newImage->GetWidth();
     int height = newImage->GetHeight();
-    Buffer phaseImage(width, height, sizeof(uint8_t) * 3 * 8);
-    Buffer phaseMap(width, height, sizeof(float) * 8);
+    Buffer phaseImage(phaseImagePool);
+    Buffer phaseMap(phaseMapPool);
 
     uint8_t* phaseImageBuffer;
     float* phaseMapBuffer;

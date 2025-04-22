@@ -3,71 +3,65 @@
 
 #include <iostream>
 
-std::unordered_map<size_t, std::queue<Buffer::Impl*>> Buffer::pool;
-std::mutex Buffer::poolMutex;
 
-
-Buffer::Buffer(size_t width, size_t height, size_t pixelBits, size_t alignBytes)
+BufferPool::BufferPool(const BufferDesc& desc, size_t nBuffers):
+    width(desc.width),
+    height(desc.height),
+    pixelBits(desc.pixelBits),
+    queue(nBuffers)
 {
-    Impl* implRaw = nullptr;
     size_t unaligned = (width * height * pixelBits + 8 - 1) / 8;
-    size_t byteSize = (unaligned + alignBytes - 1) / alignBytes * alignBytes;
+    byteSize = (unaligned + desc.alignBytes - 1) / desc.alignBytes * desc.alignBytes;
 
+    cudaError_t error = cudaMallocHost(&buffers, nBuffers * byteSize);
+    if(error != cudaSuccess)
     {
-        std::lock_guard guard(poolMutex);
-        auto it = pool.find(byteSize);
-        if(it != pool.end() && it->second.size() > 0)
-        {
-            implRaw = it->second.front();
-            it->second.pop();
-        }
+        std::cout << "Failed to allocate " << nBuffers << " buffer of size " << byteSize << std::endl;
     }
 
-    if(!implRaw)
+    for(size_t i=0;i<nBuffers;i++)
     {
-        cudaError_t error = cudaMallocHost(&implRaw, sizeof(Impl) + byteSize);
-        if(error != cudaSuccess)
-        {
-            std::cout << "Failed to allocate host buffer of size: " << byteSize <<": " << cudaGetErrorString(error) << std::endl;
-            return;
-        }
-
-        std::cout << "Allocated cuda host buffer of size: " << byteSize << std::endl;
+        queue.push(i);
     }
+}
 
-    impl = std::shared_ptr<Impl>(new (implRaw) Impl{
-        width,
-        height,
-        pixelBits,
-        byteSize,
-    }, 
-    [&](Impl* implRaw){
-        std::lock_guard guard(poolMutex);
-        pool[implRaw->byteSize].push(implRaw);
+BufferPool::~BufferPool()
+{
+    cudaFree(buffers);
+}
+
+Buffer::Buffer(std::shared_ptr<BufferPool> pool)
+{
+    size_t id;
+    if(!pool->queue.pop(id))
+        return;
+
+    impl = std::shared_ptr<Impl>(new Impl{pool, id}, [](Impl* impl){
+        impl->pool->queue.push(impl->id);
     });
 }
 
 Buffer::~Buffer()
 {
-
+    
 }
 
 void* Buffer::get()
 {
-    return reinterpret_cast<uint8_t*>(impl.get()) + sizeof(Impl);
+    return reinterpret_cast<uint8_t*>(impl->pool->buffers) + impl->pool->byteSize * impl->id;
 }
 
 size_t Buffer::getByteSize()
 {
-    return impl->byteSize;
+    return impl->pool->byteSize;
 }
 
 size_t Buffer::getWidth()
 {
-    return impl->width;
+    return impl->pool->width;
 }
 
 size_t Buffer::getHeight()
 {
-    return impl->height;
+    return impl->pool->height;
 }

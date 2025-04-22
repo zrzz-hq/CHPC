@@ -83,7 +83,7 @@ public:
         }
     };
 
-    GPU(int width, int height);
+    GPU(size_t width, size_t height);
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
@@ -104,4 +104,6 @@ private:
     std::deque<float*> buffers;
     std::shared_ptr<Config> config;
 
+    std::shared_ptr<BufferPool> phaseMapPool;
+    std::shared_ptr<BufferPool> phaseImagePool;
 };
