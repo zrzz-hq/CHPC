@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Spinnaker.h"
 #include <iostream>
 #include <vector>
@@ -6,19 +8,47 @@
 #include <algorithm>
 
 using namespace Spinnaker;
+
 class FLIRCamera 
 {
 public:
+  struct Config
+  {
+    GenApi::CIntegerPtr width;
+    GenApi::CIntegerPtr height;
+
+    GenApi::CEnumerationPtr exposureMode;
+    GenApi::CFloatPtr exposureTime;
+
+    GenApi::CEnumerationPtr gainMode;
+    GenApi::CFloatPtr gain;
+
+    GenApi::CFloatPtr frameRate;
+    GenApi::CBooleanPtr acquisitionFrameRateEnable;
+
+    GenApi::CEnumerationPtr triggerMode;
+    GenApi::CEnumerationPtr triggerSource;
+
+    GenApi::CEnumerationPtr pixelFormat;
+  };
+
   void getVersion();
-  bool open(uint32_t devID);
+
+  std::shared_ptr<Config> open(size_t index);
+
+  std::vector<std::string> enumCamera();
   bool start();
   void stop();
   void close();
   ImagePtr read();
-  bool setFPS(double fps);
-  bool setResolution(int width, int height);
-  bool enableTrigger(Spinnaker::TriggerSourceEnums line);
-  void disableTrigger();
+  
+
+  // bool setFPS(double fps);
+  // bool setResolution(int width, int height);
+  // bool setExposureTime(int timeNS);
+  // bool enableTrigger(Spinnaker::TriggerSourceEnums line);
+  // void disableTrigger();
+  // bool FLIRCamera::setPixelFormat(const std::string& format);
 
   FLIRCamera();
   ~FLIRCamera();
