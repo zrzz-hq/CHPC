@@ -135,28 +135,20 @@ bool FLIRCamera::start()
     if(mCam && mCam -> IsStreaming())
     return true;
 
-// size_t bufferSize = ((mWidth * mHeight + 1024 - 1) / 1024) * 1024;
-// // size_t bufferSize = mWidth * mHeight;
-// unsigned userBufferNum = 50;
-// for(int i=0; i<userBufferNum; i++)
-// {
-//     void* hostBuffer;
-//     cudaError_t error = cudaMallocHost(&hostBuffer, bufferSize);
-//     if(error != cudaSuccess)
-//     {
-//         std::cout << "Failed to allocate image buffer: " << cudaGetErrorString(error) << std::endl;
-//         return false;
-//     }
-//     buffers.push_back(hostBuffer);
-// }
+    INodeMap& nodeMap = mCam->GetNodeMap();
+    CIntegerPtr width = nodeMap.GetNode("Width");
+    CIntegerPtr height = nodeMap.GetNode("Height");
 
-// mCam->SetUserBuffers(buffers.data(), userBufferNum, bufferSize);
-mCam->BeginAcquisition();
+    pool = std::make_shared<BufferPool>(BufferDesc{
+        static_cast<size_t>(width->GetValue()),
+        static_cast<size_t>(height->GetValue()),8*3}, 2);
+    
+    mCam->BeginAcquisition();
 
-std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
-std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;
+    std::cout << "Maximum number of buffers: " << mCam -> TLStream.StreamBufferCountMax.GetValue() << std::endl;
+    std::cout << "Number of input buffers: " << mCam -> TLStream.StreamInputBufferCount.GetValue() << std::endl;
 
-return true;
+    return true;
 }
 
 void FLIRCamera::stop()
@@ -169,18 +161,18 @@ void FLIRCamera::stop()
         {
             cudaFree(buffer);
         }
+
+        pool.reset();
     }
 }
 
-ImagePtr FLIRCamera::read()
+Buffer FLIRCamera::read()
 {
     ImagePtr pResultImage = nullptr;
+    Buffer buffer(pool);
 
     try
     {
-        // std::cout << "Input buffer count: " << mCam->TLStream.StreamInputBufferCount.GetValue() << std::endl;
-        // std::cout << "Lost buffer count: " << mCam->TLStream.StreamLostFrameCount.GetValue() << std::endl;
-        // Retrieve next received image
         pResultImage = mCam->GetNextImage(100);
 
         // Ensure image is complete
@@ -193,12 +185,11 @@ ImagePtr FLIRCamera::read()
         else
         {
             void* src = pResultImage->GetData();
-            
-            // size_t sz = pResultImage->GetImageSize();
+            if(buffer.isValid())
+            {
+                cudaMemcpy(buffer.get(), src, pResultImage->GetBufferSize(), cudaMemcpyHostToDevice);
+            }
         }
-
-        // Release image
-        // pResultImage->Release();
 
     }
     catch (Spinnaker::Exception& e)
@@ -206,7 +197,7 @@ ImagePtr FLIRCamera::read()
         // std::cout << "Get next image timeout: " + std::string(e.what()) << std::endl;
     }
 
-    return std::move(pResultImage);
+    return buffer;
 
 }
 

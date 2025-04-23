@@ -63,7 +63,7 @@ class Buffer
     }
     ~Buffer();
 
-    bool isVaild() {return impl != nullptr;}
+    bool isValid() {return impl != nullptr;}
     void* get(); 
     size_t getByteSize();
     size_t getWidth();

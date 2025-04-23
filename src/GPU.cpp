@@ -39,8 +39,8 @@ GPU::GPU(size_t width, size_t height):
         throw std::runtime_error("Failed to create cuda stream 2: "+ std::string(cudaGetErrorString(error)));
     }
 
-    phaseImagePool = std::make_shared<BufferPool>(BufferDesc{width, height, sizeof(uint8_t) * 3 * 8}, 40);
-    phaseMapPool = std::make_shared<BufferPool>(BufferDesc{width, height, sizeof(float) * 8}, 40);
+    phaseImagePool = std::make_shared<BufferPool>(BufferDesc{width, height, sizeof(uint8_t) * 3 * 8}, 30);
+    phaseMapPool = std::make_shared<BufferPool>(BufferDesc{width, height, sizeof(float) * 8}, 30);
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -79,14 +79,13 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-std::shared_ptr<GPU::Future> GPU::runAsync(Spinnaker::ImagePtr newImage)
+std::shared_ptr<GPU::Future> GPU::runAsync(Buffer image)
 {
     float* newImageDev = buffers.back();
     buffers.pop_back();
     buffers.push_front(newImageDev);
 
-    cudaMemcpy(imageBuffer, newImage->GetData(), N, cudaMemcpyHostToDevice);
-    convert_type<<<blockPerGrid,threadPerBlock, 0, stream2>>>(reinterpret_cast<uint8_t*>(imageBuffer), newImageDev, N);
+    convert_type<<<blockPerGrid,threadPerBlock, 0, stream2>>>(reinterpret_cast<uint8_t*>(image.get()), newImageDev, N);
 
     if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))
     {
@@ -99,12 +98,10 @@ std::shared_ptr<GPU::Future> GPU::runAsync(Spinnaker::ImagePtr newImage)
             eleCount = 0;
     }
 
-    int width = newImage->GetWidth();
-    int height = newImage->GetHeight();
     Buffer phaseImage(phaseImagePool);
     Buffer phaseMap(phaseMapPool);
 
-    if(!phaseImage.isVaild() || !phaseImage.isVaild())
+    if(!phaseImage.isValid() || !phaseImage.isValid())
         return std::make_shared<Future>();
 
     uint8_t* phaseImageBuffer = reinterpret_cast<uint8_t*>(phaseImage.get());

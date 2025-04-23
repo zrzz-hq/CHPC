@@ -42,7 +42,7 @@ public:
   bool start();
   void stop();
   void close();
-  ImagePtr read();
+  Buffer read();
   
 
   // bool setFPS(double fps);
@@ -59,11 +59,11 @@ private:
   SystemPtr  mSystem;
   CameraPtr  mCam;
   CameraList mCamList;
-  void startStreaming();
 
   int mWidth;
   int mHeight;
   int mFPS;
 
+  std::shared_ptr<BufferPool> pool;
   std::vector<void*> buffers;
 };

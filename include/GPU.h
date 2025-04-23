@@ -63,7 +63,7 @@ public:
                 return false;
             }
 
-            if(!phaseMap.isVaild() || !phaseImage.isVaild())
+            if(!phaseMap.isValid() || !phaseImage.isValid())
                 return false;
 
             return true;
@@ -89,7 +89,7 @@ public:
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    std::shared_ptr<Future> runAsync(Spinnaker::ImagePtr image);
+    std::shared_ptr<Future> runAsync(Buffer image);
 
 private:
 

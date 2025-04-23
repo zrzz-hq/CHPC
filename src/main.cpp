@@ -22,7 +22,7 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
-Spinnaker::ImagePtr imageBuffer;
+Buffer imageBuffer;
 Buffer phaseImageBuffer;
 Buffer phaseMapBuffer;
 
@@ -52,7 +52,7 @@ void* cameraThreadFunc(void* arg)
     std::shared_ptr<GPU::Future> future;
     while(1)
     {
-        Spinnaker::ImagePtr imagePtr = cam->read();
+        Buffer image = cam->read();
 
         bool success = future == nullptr ? false : future->join();
 
@@ -69,13 +69,13 @@ void* cameraThreadFunc(void* arg)
             }
         }
 
-        if(imagePtr.IsValid())
+        if(image.isValid())
         {
+            future = gpu->runAsync(image);
             {
                 std::lock_guard guard(imageMutex);
-                imageBuffer = imagePtr;
+                imageBuffer = std::move(image);
             }
-            future = gpu->runAsync(imagePtr);
         }
         
     }
@@ -153,16 +153,16 @@ int main(int argc, char* argv[])
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
     while(mainWindow.ok())
     {
-        Spinnaker::ImagePtr image;
+        Buffer image;
 
         {
             std::lock_guard guard(imageMutex);
             image = std::move(imageBuffer);
         }
 
-        if(image.IsValid())
+        if(image.isValid())
         {
-            mainWindow.updateFrame(image->GetData());
+            mainWindow.updateFrame(image.get());
         }
 
         Buffer phaseImage;
@@ -172,30 +172,30 @@ int main(int argc, char* argv[])
             phaseImage = std::move(phaseImageBuffer);
         }
 
-        if(phaseImage.isVaild())
+        if(phaseImage.isValid())
         {
             mainWindow.updatePhase(phaseImage.get());
         }
         
-        if (mainWindow.nSavedPhaseMap > 0)
-        {
-            //Save Phase Maps
-            Buffer phaseMap;
+        // if (mainWindow.nSavedPhaseMap > 0)
+        // {
+        //     //Save Phase Maps
+        //     Buffer phaseMap;
 
-            {
-                std::lock_guard guard(phaseMapMutex);
-                phaseMap = std::move(phaseMapBuffer);
-            }
+        //     {
+        //         std::lock_guard guard(phaseMapMutex);
+        //         phaseMap = std::move(phaseMapBuffer);
+        //     }
 
-            if(phaseMap.isVaild())
-            {
-                std::string fileName = mainWindow.textBuffer;
-                std::string filePath =  "/home/nvidia/images/";
-                writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
+        //     if(phaseMap.isValid())
+        //     {
+        //         std::string fileName = mainWindow.textBuffer;
+        //         std::string filePath =  "/home/nvidia/images/";
+        //         writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
 
-                mainWindow.nSavedPhaseMap--;
-            }
-        }
+        //         mainWindow.nSavedPhaseMap--;
+        //     }
+        // }
 
         mainWindow.spinOnce();
     }
