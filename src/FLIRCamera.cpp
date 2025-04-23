@@ -138,10 +138,6 @@ bool FLIRCamera::start()
     INodeMap& nodeMap = mCam->GetNodeMap();
     CIntegerPtr width = nodeMap.GetNode("Width");
     CIntegerPtr height = nodeMap.GetNode("Height");
-
-    pool = std::make_shared<BufferPool>(BufferDesc{
-        static_cast<size_t>(width->GetValue()),
-        static_cast<size_t>(height->GetValue()),8*3}, 2);
     
     mCam->BeginAcquisition();
 
@@ -166,10 +162,9 @@ void FLIRCamera::stop()
     }
 }
 
-Buffer FLIRCamera::read()
+ImagePtr FLIRCamera::read()
 {
     ImagePtr pResultImage = nullptr;
-    Buffer buffer(pool);
 
     try
     {
@@ -179,25 +174,17 @@ Buffer FLIRCamera::read()
         if (pResultImage->IsIncomplete())
         {
             // Retrieve and print the image status description
-            throw std::runtime_error("Image incomplete: " + 
-                std::string(Image::GetImageStatusDescription(pResultImage->GetImageStatus())));
-        }
-        else
-        {
-            void* src = pResultImage->GetData();
-            if(buffer.isValid())
-            {
-                cudaMemcpy(buffer.get(), src, pResultImage->GetBufferSize(), cudaMemcpyHostToDevice);
-            }
+            std::cout << "Image incomplete: " + 
+                std::string(Image::GetImageStatusDescription(pResultImage->GetImageStatus()));
         }
 
     }
     catch (Spinnaker::Exception& e)
     {
-        // std::cout << "Get next image timeout: " + std::string(e.what()) << std::endl;
+        
     }
 
-    return buffer;
+    return pResultImage;
 
 }
 

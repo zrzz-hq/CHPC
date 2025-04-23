@@ -79,18 +79,20 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-std::shared_ptr<GPU::Future> GPU::runAsync(Buffer image)
+Buffer GPU::run(Spinnaker::ImagePtr image)
 {
     float* newImageDev = buffers.back();
     buffers.pop_back();
     buffers.push_front(newImageDev);
 
-    convert_type<<<blockPerGrid,threadPerBlock, 0, stream2>>>(reinterpret_cast<uint8_t*>(image.get()), newImageDev, N);
+    cudaMemcpy(imageBuffer, image->GetData(), N * sizeof(uint8_t), cudaMemcpyHostToDevice);
+
+    convert_type<<<blockPerGrid,threadPerBlock, 0, stream2>>>(imageBuffer, newImageDev, N);
 
     if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))
     {
         eleCount++;
-        return std::make_shared<Future>();
+        return Buffer();
     }
     else
     {
@@ -98,13 +100,11 @@ std::shared_ptr<GPU::Future> GPU::runAsync(Buffer image)
             eleCount = 0;
     }
 
-    Buffer phaseImage(phaseImagePool);
     Buffer phaseMap(phaseMapPool);
 
-    if(!phaseImage.isValid() || !phaseImage.isValid())
-        return std::make_shared<Future>();
+    if(!phaseMap.isValid())
+        return Buffer();
 
-    uint8_t* phaseImageBuffer = reinterpret_cast<uint8_t*>(phaseImage.get());
     float* phaseMapBuffer = reinterpret_cast<float*>(phaseMap.get());
  
     switch (config->algorithmIndex)
@@ -116,7 +116,6 @@ std::shared_ptr<GPU::Future> GPU::runAsync(Buffer image)
                                         buffers[3],
                                         buffers[4],
                                         phaseMapBuffer,
-                                        phaseImageBuffer,
                                         N);
         break;
     case 1:
@@ -125,7 +124,6 @@ std::shared_ptr<GPU::Future> GPU::runAsync(Buffer image)
                                         buffers[2],
                                         buffers[3],
                                         phaseMapBuffer,
-                                        phaseImageBuffer,
                                         N);
         break;
     case 2:
@@ -134,11 +132,23 @@ std::shared_ptr<GPU::Future> GPU::runAsync(Buffer image)
                                         buffers[2],
                                         buffers[3],
                                         phaseMapBuffer,
-                                        phaseImageBuffer,
                                         N);
     default:
         break;
     }
 
-    return std::shared_ptr<Future>(new Future(phaseMap, phaseImage, stream2));
+    cudaStreamSynchronize(stream2);
+    return phaseMap;
+}
+
+Buffer GPU::generateImage(Buffer phaseMap)
+{   
+    Buffer phaseImage(phaseImagePool);
+
+    generate_image<<<blockPerGrid,threadPerBlock, 0, stream2>>>(
+        reinterpret_cast<float*>(phaseMap.get()), 
+        reinterpret_cast<uint8_t*>(phaseImage.get()), N);
+    cudaStreamSynchronize(stream2);
+
+    return phaseImage;
 }

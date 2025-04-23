@@ -42,7 +42,7 @@ public:
   bool start();
   void stop();
   void close();
-  Buffer read();
+  ImagePtr read();
   
 
   // bool setFPS(double fps);

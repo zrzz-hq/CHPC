@@ -22,18 +22,57 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
-Buffer imageBuffer;
-Buffer phaseImageBuffer;
-Buffer phaseMapBuffer;
+template<typename T>
+class Queue
+{
+    public:   
+    Queue(){}
+    ~Queue(){}
 
-std::mutex imageMutex;
-std::mutex phaseImageMutex;
-std::mutex phaseMapMutex;
+    void push(T item)
+    {
+        std::lock_guard guard(this->mutex);
+        this->queue.push(item);
+        this->cond.notify_one();
+    }
+
+    T pop()
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        this->cond.wait(lock, [&](){return queue.size() != 0;});
+
+        T item = this->queue.front();
+        this->queue.pop();
+        return item;
+    }
+
+    T try_pop(std::chrono::milliseconds duration)
+    {
+        std::unique_lock<std::mutex> lock(this->mutex);
+        bool success = this->cond.wait_for(lock, duration, [&](){return this->queue.size() != 0;});
+
+        if(!success)
+            return T{};
+        
+        T item = this->queue.front();
+        this->queue.pop();
+        return item;
+    }
+
+    private:
+    std::queue<T> queue;
+    std::mutex mutex;
+    std::condition_variable cond;
+};
+
+Queue<ImagePtr> imageQueue1;
+Queue<ImagePtr> imageQueue2;
+Queue<Buffer> phaseMapQueue;
+Queue<Buffer> phaseImageQueue;
 
 void cameraThreadCleanUp(void* arg)
 {
-    void** args = reinterpret_cast<void**>(arg);
-    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(args[0]);
+    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
 
     cam->stop();
 
@@ -42,48 +81,71 @@ void cameraThreadCleanUp(void* arg)
 
 void* cameraThreadFunc(void* arg)
 {
-    void** args = reinterpret_cast<void**>(arg);
     pthread_cleanup_push(cameraThreadCleanUp, arg);
-    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(args[0]);
-    GPU* gpu = reinterpret_cast<GPU*>(args[1]);
-
+    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
+    
+    auto last = std::chrono::system_clock::now();
     cam->start();
 
-    std::shared_ptr<GPU::Future> future;
     while(1)
     {
-        Buffer image = cam->read();
+        ImagePtr image = cam->read();
 
-        bool success = future == nullptr ? false : future->join();
-
-        if(success)
+        if(image.IsValid())
         {
-            auto [phaseMap, phaseImage] = future->getResult();
-            {
-                std::lock_guard guard(phaseMapMutex);
-                phaseMapBuffer = phaseMap;
-            }
-            {
-                std::lock_guard guard(phaseImageMutex);
-                phaseImageBuffer = phaseImage;
-            }
+            imageQueue1.push(image);
         }
 
-        if(image.isValid())
-        {
-            future = gpu->runAsync(image);
-            {
-                std::lock_guard guard(imageMutex);
-                imageBuffer = std::move(image);
-            }
-        }
-        
+        pthread_testcancel();
+
+        auto now = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        last = now;
+        // std::cout << "Duration of camera: " << duration << '\r';
     }
 
     cam->stop();
 
     pthread_cleanup_pop(1);
     return 0;
+}
+
+void* gpuThreadFunc(void* arg)
+{
+    GPU* gpu = reinterpret_cast<GPU*>(arg);
+
+    auto last = std::chrono::system_clock::now();
+
+    while(1)
+    {
+        // ImagePtr image = imageQueue1.try_pop(std::chrono::milliseconds(10));
+        ImagePtr image = imageQueue1.pop();
+
+        if(image.IsValid())
+        {
+            Buffer phaseMap = gpu->run(image);
+            
+            if(phaseMap.isValid())
+            {
+                // auto start = std::chrono::system_clock::now();
+                Buffer phaseImage = gpu->generateImage(phaseMap);
+                // auto end = std::chrono::system_clock::now();
+                // std::cout << "Cpu algorithm takes time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+
+                phaseMapQueue.push(phaseMap);
+                phaseImageQueue.push(phaseImage);
+            }
+
+            imageQueue2.push(image);
+        }
+
+        pthread_testcancel();
+
+        auto now = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        last = now;
+        std::cout << "Duration of gpu: " << duration << std::endl;
+    }
 }
 
 void writeMatToCSV(Buffer phaseMap, const std::string& fileName)
@@ -144,64 +206,54 @@ int main(int argc, char* argv[])
     GPU gpu(width, height);
 
     pthread_t cameraThread;
-    void* args[2] = {&cam, &gpu};
-    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, args) == -1)
+    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, &cam) == -1)
     {
         std::cout << "Failed to create camera thread" << std::endl;
         return 1;
     }
+
+    pthread_t gpuThread;
+    if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
+    {
+        std::cout << "Failed to create gpu thread" << std::endl;
+        return 1;
+    }
+
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
     while(mainWindow.ok())
     {
-        Buffer image;
+        ImagePtr image = imageQueue2.try_pop(std::chrono::milliseconds(0));
 
+        if(image.IsValid())
         {
-            std::lock_guard guard(imageMutex);
-            image = std::move(imageBuffer);
+            mainWindow.updateFrame(image->GetData());
         }
 
-        if(image.isValid())
-        {
-            mainWindow.updateFrame(image.get());
-        }
-
-        Buffer phaseImage;
-
-        {
-            std::lock_guard guard(phaseImageMutex);
-            phaseImage = std::move(phaseImageBuffer);
-        }
+        Buffer phaseImage = phaseImageQueue.try_pop(std::chrono::milliseconds(0));
 
         if(phaseImage.isValid())
         {
             mainWindow.updatePhase(phaseImage.get());
         }
+
+        Buffer phaseMap = phaseMapQueue.try_pop(std::chrono::milliseconds(0));
         
-        // if (mainWindow.nSavedPhaseMap > 0)
-        // {
-        //     //Save Phase Maps
-        //     Buffer phaseMap;
+        if (mainWindow.nSavedPhaseMap > 0 && phaseMap.isValid())
+        {
+            std::string fileName = mainWindow.textBuffer;
+            std::string filePath =  "/home/nvidia/images/";
+            writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
 
-        //     {
-        //         std::lock_guard guard(phaseMapMutex);
-        //         phaseMap = std::move(phaseMapBuffer);
-        //     }
-
-        //     if(phaseMap.isValid())
-        //     {
-        //         std::string fileName = mainWindow.textBuffer;
-        //         std::string filePath =  "/home/nvidia/images/";
-        //         writeMatToCSV(phaseMap, filePath + fileName + std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap) + ".csv");
-
-        //         mainWindow.nSavedPhaseMap--;
-        //     }
-        // }
-
+            mainWindow.nSavedPhaseMap--;
+        }
+        
         mainWindow.spinOnce();
     }
 
     pthread_cancel(cameraThread);
     pthread_join(cameraThread, NULL);
+    pthread_cancel(gpuThread);
+    pthread_join(gpuThread, NULL);
 
     cam.close();
     return 0;

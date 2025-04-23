@@ -18,9 +18,10 @@
 // extern "C" {
 // #endif
 __global__ void convert_type(uint8_t *inp, float *outp, int N);
-__global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
-__global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
-__global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
+__global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, int N);
+__global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
+__global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
+__global__ void generate_image(float* map, uint8_t* image, int N);
 // #ifdef _cplusplus
 // }
 // #endif
@@ -43,9 +44,9 @@ public:
         Future(){}
         ~Future(){}
 
-        std::pair<Buffer, Buffer> getResult()
+        Buffer getResult()
         {
-            return {phaseMap, phaseImage};
+            return buffer;
         }
 
         bool join()
@@ -63,7 +64,7 @@ public:
                 return false;
             }
 
-            if(!phaseMap.isValid() || !phaseImage.isValid())
+            if(!buffer.isValid())
                 return false;
 
             return true;
@@ -71,14 +72,12 @@ public:
 
         private:
 
-        Buffer phaseMap;
-        Buffer phaseImage;
+        Buffer buffer;
         cudaStream_t stream;
         bool expired = true;
 
-        Future(Buffer phaseMap, Buffer phaseImage, cudaStream_t stream):
-            phaseMap(phaseMap),
-            phaseImage(phaseImage),
+        Future(Buffer buffer, cudaStream_t stream):
+            buffer(buffer),
             stream(stream)
         {
             expired = false;
@@ -89,7 +88,8 @@ public:
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    std::shared_ptr<Future> runAsync(Buffer image);
+    Buffer run(Spinnaker::ImagePtr image);
+    Buffer generateImage(Buffer phaseMap);
 
 private:
 
