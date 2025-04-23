@@ -26,26 +26,20 @@ __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase,
 class GPU
 {
 public:
-    // enum class PhaseAlgorithm
-    // {
-    //     NOVAK = 0,
-    //     FOURPOINT = 1,
-    //     CARRE = 2
-    // };
 
     struct Config
     {
         int algorithmIndex = 2;
         const char* algorithmNames[3] = {"Novak", "FourPoints", "Carre"};
         int nAlgorithms = 3;
+        bool bufferMode = false;
     };
 
     GPU(int width, int height, size_t nPhaseBuffers);
     ~GPU();
     std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> join();
-    void run(Spinnaker::ImagePtr image);
+    std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> run(Spinnaker::ImagePtr image);
 
 private:
 

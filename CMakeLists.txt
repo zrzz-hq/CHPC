@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(OpenCV REQUIRED)
 find_package(CUDA REQUIRED 10)
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem system)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 
@@ -50,7 +50,8 @@ target_link_libraries(PhaseVisualizer
     ${SPINNAKER_LIBS} 
     ${CUDA_LIBRARIES} 
     ${OpenCV_LIBS} 
-    ${Boost_LIBRARIES} 
+    Boost::filesystem
+    Boost::system
     OpenGL::GL 
     glfw
     imgui
