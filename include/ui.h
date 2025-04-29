@@ -10,6 +10,8 @@
 
 #include "FLIRCamera.h"
 #include "GPU.h"
+#include "ImGuiFileDialog.h"
+// #include "ImGuiFileDialogConfig.h"
 
 class WindowBase
 {
@@ -123,7 +125,10 @@ class MainWindow: public WindowBase
     void render() final;
     int nSavedPhaseMap = 0;
     int numSuccessiveImages = 1;
-    char textBuffer[64] = "PhaseMap";
+    bool input = false;
+    bool output = true;
+    std::string path;
+    char fileName[64] = "Image";
 
     private:
     GLuint frameTexture;
@@ -134,26 +139,5 @@ class MainWindow: public WindowBase
     int duration = 100000;
     int width;
     int height;
-    
     std::shared_ptr<GPU::Config> gpuConfig_;
 };
-
-// struct MainParameters
-// {
-//     int algorithmIndex;
-
-//     int nSavedImages;
-
-//     const char* algorithms[3] = { "Carre", "Novak", "Four Point" };
-//     unsigned nAlgorithms;
-
-//     std::function<void(void)> onSaveImage;
-
-//     GLuint imageTexture;
-//     GLuint phaseTexture;
-// };
-
-
-// void errorUI(bool& shouldClose);
-// void mainUI(MainParameters& params);
-

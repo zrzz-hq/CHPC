@@ -1,5 +1,16 @@
 #include "GPU.h"
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+    __global__ void convert_type(uint8_t *inp, float *outp, int N);
+    __global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
+    __global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
+    __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
+#ifdef _cplusplus
+}
+#endif
+
 GPU::GPU(int width, int height, size_t nPhaseBuffers):
     cosineBuffers(nPhaseBuffers),
     phaseBuffers(nPhaseBuffers),
@@ -104,27 +115,6 @@ std::shared_ptr<GPU::Config> GPU::getConfig()
     return config;
 }
 
-// std::pair<std::shared_ptr<uint8_t>,std::shared_ptr<float>> GPU::join()
-// {
-//     if(cosineBuffer == nullptr || phaseBuffer == nullptr)
-//         return {nullptr, nullptr};
-
-//     cudaError_t error = cudaDeviceSynchronize();
-//     if(error != cudaSuccess)
-//     {
-//         std::cout << "Failed to run algorithm: " << cudaGetErrorString(error) << std::endl;
-//         return {nullptr, nullptr};
-//     }
-
-//     auto phaseImage = std::shared_ptr<uint8_t>(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
-//     auto phaseMap = std::shared_ptr<float>(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
-
-//     cosineBuffer = nullptr;
-//     phaseBuffer = nullptr;
-
-//     return {phaseImage, phaseMap};
-// }
-
 std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::ImagePtr newImage)
 {
     float* newImageDev = buffers.back();
@@ -141,7 +131,7 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
     
     convert_type<<<blockPerGrid, threadPerBlock, 0, stream1>>>(imageBuffer, newImageDev, N);
 
-    if (eleCount < (config->algorithmIndex == 0 ? 5 : 4))
+    if (eleCount < 4)
     {
         eleCount++;
         return {nullptr, nullptr};

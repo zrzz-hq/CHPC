@@ -90,34 +90,64 @@ void* gpuThreadFunc(void* arg)
     }
 }
 
-void writeMatToCSV(std::shared_ptr<float> phaseMap, int width, int height, const std::string& fileName)
+template <typename T>
+void writeCvMat(cv::Mat mat, const std::string& fileName)
 {
-    cv::Mat phaseMat(height, width, CV_32F);
-    if(cudaMemcpy(phaseMat.data, phaseMap.get(), width*height*sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess)
-    {
-        std::cout << "Failed to copy data" << std::endl;
-    }
-    else
-    {
-        std::ofstream file(fileName);
+    std::ofstream file(fileName);
 
-        if (!file.is_open()){
-            std::cout << "Error: Could not write phase map to csv file\n";
-            return;
-        }
-
-        for (int i = 0; i < phaseMat.rows; i++){
-            for (int j = 0; j < phaseMat.cols; j++){
-                file << phaseMat.at<float>(i, j);
-                if (j < phaseMat.cols-1)
-                    file << ',';
-            }
-            file << '\n';
-        }
-        file.close();
-        std::cout << "Phase map saved to " << fileName << std::endl; 
+    if (!file.is_open()){
+        std::cout << "Error: Could not write phase map to csv file\n";
+        return;
     }
+
+    for (int i = 0; i < mat.rows; i++){
+        for (int j = 0; j < mat.cols; j++){
+            file << std::to_string(mat.at<T>(i, j));
+            if (j < mat.cols-1)
+                file << ',';
+        }
+        file << '\n';
+    }
+    file.close();
 }
+
+// template <typename T>
+// void writeMat(T* data, size_t width, size_t height, boost::filesystem::path fileName)
+// {
+//     std::ofstream file(fileName.string());
+
+//     if (!file.is_open()){
+//         std::cout << "Error: Could not write phase map to csv file\n";
+//         return;
+//     }
+
+//     for (int i = 0; i < height; i++){
+//         for (int j = 0; j < width; j++){
+//             file << *(data + i*j);
+//             if (j < height - 1)
+//                 file << ',';
+//         }
+//         file << '\n';
+//     }
+//     file.close();
+// }
+
+// void writeMat(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> image, int width, int height, const std::string& fileName)
+// {
+//     if(phaseMap)
+//     {
+//         cv::Mat phaseMat(height, width, CV_32F, phaseMap.get());
+//         writeCvMat<float>(phaseMat, fileName);
+//         std::cout << "Phase map saved to " << fileName << std::endl; 
+//     }
+
+//     if(image)
+//     {
+//         cv::Mat imageMat(height, width, CV_8UC1, image.get());
+//         writeCvMat<uint8_t>(imageMat, fileName);
+//         std::cout << "Image saved to " << fileName << std::endl; 
+//     }
+// }
 
 int main(int argc, char* argv[])
 {
@@ -196,19 +226,35 @@ int main(int argc, char* argv[])
             mainWindow.updatePhase(phaseImage.get());
         }
         
+        std::string fileName = mainWindow.fileName;
         if (mainWindow.nSavedPhaseMap > 0)
         {
             //Save Phase Maps
-            std::shared_ptr<float> phaseMap = std::get<2>(tuple);
-            if(phaseMap != nullptr)
+            if(mainWindow.output && phaseImage)
             {
-                std::string fileName = mainWindow.textBuffer;
-                fileName += std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap);
-                boost::filesystem::path filePath = imageFolder / fileName;
+                std::shared_ptr<float> phaseMap = std::get<2>(tuple);
+                cv::Mat phaseMat(height, width, CV_32F);
+                cudaMemcpy(phaseMat.data, phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+                
+                boost::filesystem::path filePath = boost::filesystem::path(mainWindow.path) 
+                    / (fileName + "_phase" + 
+                    std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
+
                 filePath.replace_extension("csv");
-                std::async(std::launch::async, writeMatToCSV, phaseMap, width, height, filePath.c_str());
-                mainWindow.nSavedPhaseMap--;
+                writeCvMat<float>(phaseMat, filePath.string());
             }
+
+            if(mainWindow.input)
+            {
+                boost::filesystem::path filePath = boost::filesystem::path(mainWindow.path) 
+                    / (fileName + "_image" + 
+                    std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
+
+                filePath.replace_extension("csv");
+                writeCvMat<uint8_t>(cv::Mat(height, width, CV_8UC1, image->GetData()), filePath.string());
+            }
+
+            mainWindow.nSavedPhaseMap--;
         }
 
         mainWindow.spinOnce();

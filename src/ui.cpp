@@ -3,10 +3,10 @@
 #include "backends/imgui_impl_opengl3.h"
 
 #include "ui.h"
-
 #include <cstring>
 #include <algorithm>
 #include <fstream>
+#include <boost/filesystem.hpp>
 
 using namespace Spinnaker;
 using namespace GenApi;
@@ -266,7 +266,7 @@ void StartupWindow::render()
     
     if (showInfoWindow)
     {
-        ImGui::Text("Version: 1.0");
+        ImGui::Text("Version: 1.1");
         ImGui::BeginTable("InfoTable", 3, ImGuiTableFlags_Borders|ImGuiTableFlags_SizingStretchSame);
         
         ImGui::TableNextRow();
@@ -326,6 +326,12 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::sh
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+    path = (boost::filesystem::absolute(".").parent_path() / "images").string();
+    if(boost::filesystem::exists(path))
+    {
+        boost::filesystem::create_directories(path);
+    }
 }
 
 MainWindow::~MainWindow()
@@ -391,18 +397,63 @@ void MainWindow::render()
     }
 
     ImGui::Separator();
+
+    if (ImGui::Button("Choose Directory")) 
+    {
+        // std::future<std::string> futureDir = std::async(std::launch::async, 
+        // std::bind(&MainWindow::chooseDirectory, this));
+        IGFD::FileDialogConfig config;
+        config.path = path;
+        config.flags = ImGuiFileDialogFlags_Default;
+        ImGuiFileDialog::Instance()->OpenDialog(
+            "ChooseFolder",
+            "Choose a Folder",
+            nullptr,
+            config
+        );
+    }
+
+    ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + childWidth); // or 0 for window edge
+    ImGui::Text("%s", path.c_str());
+    ImGui::PopTextWrapPos();
+
+    if (ImGuiFileDialog::Instance()->Display("ChooseFolder")) // => will show a dialog
+    {
+        if (ImGuiFileDialog::Instance()->IsOk())
+        {
+            path = ImGuiFileDialog::Instance()->GetCurrentPath();
+            // action
+        }
+        // close
+        ImGuiFileDialog::Instance()->Close();
+    }
+
+    ImGui::Separator();
+
     ImGui::Text("Number of Images"); ImGui::SameLine(childWidth/2);
     if(ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1)){
         numSuccessiveImages = std::max(0,std::min(numSuccessiveImages, 10));
 
     }
     ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
-    ImGui::InputText("##File Name", textBuffer, IM_ARRAYSIZE(textBuffer));
-    if (ImGui::Button("Save Phase Maps")) 
+    ImGui::InputText("##File Name", fileName, IM_ARRAYSIZE(fileName));
+
+    ImGui::Checkbox("Save Input", &input); 
+    ImGui::SameLine();
+    ImGui::Checkbox("Save PhaseMap", &output); 
+
+    if (ImGui::Button("Save Images")) 
     {
         //Save Phase Map flag
         nSavedPhaseMap = numSuccessiveImages;
     }
+    // float buttonWidth = 100.0f; // Your button width
+    // float xOffset = (childWidth - buttonWidth) * 0.5f;
+    // ImGui::SetCursorPosX(xOffset);
+    // if (ImGui::Button("Save Both")) 
+    // {
+    //     //Save input flag
+    // }
 
     ImGui::PopItemWidth();
     ImGui::EndChild();

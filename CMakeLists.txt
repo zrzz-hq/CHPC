@@ -21,6 +21,8 @@ include_directories(
     imgui
 )
 
+add_subdirectory(ImGuiFileDialog)
+
 set(SPINNAKER_LIBS /opt/spinnaker/lib/libSpinnaker.so)
 
 set_source_files_properties(src/GPU.cpp PROPERTIES LANGUAGE CUDA)
@@ -49,7 +51,8 @@ add_executable(PhaseVisualizer
 target_link_libraries(PhaseVisualizer 
     ${SPINNAKER_LIBS} 
     ${CUDA_LIBRARIES} 
-    ${OpenCV_LIBS} 
+    ${OpenCV_LIBS}
+    ImGuiFileDialog
     Boost::filesystem
     Boost::system
     OpenGL::GL 
