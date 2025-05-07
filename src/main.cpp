@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
         }
         
         std::string fileName = mainWindow.fileName;
-        if (mainWindow.nSavedPhaseMap > 0)
+        if (mainWindow.nSavedPhaseMap > 0 && image.IsValid())
         {
             //Save Phase Maps
             if(mainWindow.output && phaseImage)
