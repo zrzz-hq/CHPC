@@ -437,7 +437,7 @@ void MainWindow::render()
 
     ImGui::Separator();
 
-    ImGui::Text("Number of Images"); ImGui::SameLine(childWidth/2);
+    ImGui::Text("Number"); ImGui::SameLine(childWidth/2);
     if(ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1)){
         numSuccessiveImages = std::max(0,std::min(numSuccessiveImages, 10));
 
@@ -446,11 +446,11 @@ void MainWindow::render()
     ImGui::InputText("##File Name", const_cast<char*>(filename.c_str()), filename.capacity() + 1, 
                     ImGuiInputTextFlags_CallbackResize, fileNameCallback, &filename);
 
-    ImGui::Checkbox("Save Input", &input); 
+    ImGui::Checkbox("Save Image", &input); 
     ImGui::SameLine();
     ImGui::Checkbox("Save PhaseMap", &output); 
 
-    if (ImGui::Button("Save Images")) 
+    if (ImGui::Button("Save")) 
     {
         //Save Phase Map flag
         nSavedPhaseMap = numSuccessiveImages;

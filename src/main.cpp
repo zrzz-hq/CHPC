@@ -201,7 +201,7 @@ int main(int argc, char* argv[])
             //Save Phase Maps
             if(mainWindow.output && phaseMap)
             {
-                boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + "_phase" + 
+                boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + 
                 std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
                 path.replace_extension("npy");
                 
@@ -218,17 +218,14 @@ int main(int argc, char* argv[])
 
             if(mainWindow.input)
             {
-                boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + "_image" + 
+                boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + 
                     std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
                 
-                path.replace_extension("npy");
+                path.replace_extension("png");
 
                 service.post([=]{
-                    cnpy::npy_save(
-                        path.string(), 
-                        reinterpret_cast<uint8_t*>(image->GetData()), 
-                        {static_cast<size_t>(width), static_cast<size_t>(height)}
-                    );
+                    cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
+                    cv::imwrite(path.string(), imageMat);
                 });   
             }
 
@@ -250,6 +247,7 @@ int main(int argc, char* argv[])
     cam.close();
 
     work.~work();
+    service.stop();
     workThread.join();
 
     return 0;
