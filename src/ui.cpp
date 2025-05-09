@@ -327,10 +327,10 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::sh
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
-    path = (boost::filesystem::absolute(".").parent_path() / "images").string();
-    if(boost::filesystem::exists(path))
+    folder = (boost::filesystem::absolute(".").parent_path() / "images").string();
+    if(boost::filesystem::exists(folder))
     {
-        boost::filesystem::create_directories(path);
+        boost::filesystem::create_directories(folder);
     }
 }
 
@@ -358,6 +358,16 @@ void MainWindow::updatePhase(void* phaseData)
         now = std::chrono::system_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
         last = now;
+    }
+}
+
+int MainWindow::fileNameCallback(ImGuiInputTextCallbackData* data)
+{
+    if(data->EventFlag == ImGuiInputTextFlags_CallbackResize)
+    {
+        std::string* filename = reinterpret_cast<std::string*>(data->UserData);
+        filename->resize(data->BufTextLen);
+        data->Buf = const_cast<char*>(filename->c_str());
     }
 }
 
@@ -400,10 +410,8 @@ void MainWindow::render()
 
     if (ImGui::Button("Choose Directory")) 
     {
-        // std::future<std::string> futureDir = std::async(std::launch::async, 
-        // std::bind(&MainWindow::chooseDirectory, this));
         IGFD::FileDialogConfig config;
-        config.path = path;
+        config.path = folder.string();
         config.flags = ImGuiFileDialogFlags_Default;
         ImGuiFileDialog::Instance()->OpenDialog(
             "ChooseFolder",
@@ -414,15 +422,14 @@ void MainWindow::render()
     }
 
     ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + childWidth); // or 0 for window edge
-    ImGui::Text("%s", path.c_str());
+    ImGui::Text("%s", folder.c_str());
     ImGui::PopTextWrapPos();
 
     if (ImGuiFileDialog::Instance()->Display("ChooseFolder")) // => will show a dialog
     {
         if (ImGuiFileDialog::Instance()->IsOk())
         {
-            path = ImGuiFileDialog::Instance()->GetCurrentPath();
-            // action
+            folder = ImGuiFileDialog::Instance()->GetCurrentPath();
         }
         // close
         ImGuiFileDialog::Instance()->Close();
@@ -436,7 +443,8 @@ void MainWindow::render()
 
     }
     ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
-    ImGui::InputText("##File Name", fileName, IM_ARRAYSIZE(fileName));
+    ImGui::InputText("##File Name", const_cast<char*>(filename.c_str()), filename.capacity() + 1, 
+                    ImGuiInputTextFlags_CallbackResize, fileNameCallback, &filename);
 
     ImGui::Checkbox("Save Input", &input); 
     ImGui::SameLine();

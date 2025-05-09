@@ -10,6 +10,7 @@
 #include <pthread.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/asio.hpp>
 
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -30,17 +31,6 @@ pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
 std::deque<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> imageQueue2;
 pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
-
-std::deque<std::pair<Spinnaker::ImagePtr, boost::filesystem::path>> saveQueue1;
-pthread_mutex_t saveQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t saveQueue1Cond = PTHREAD_COND_INITIALIZER;
-
-std::deque<std::pair<std::shared_ptr<float>, boost::filesystem::path>> saveQueue2;
-pthread_mutex_t saveQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t saveQueue2Cond = PTHREAD_COND_INITIALIZER;
-
-int width = 720;
-int height = 540;
 
 void cameraThreadCleanUp(void* arg)
 {
@@ -122,77 +112,39 @@ void writeCvMat(cv::Mat mat, const std::string& fileName)
     file.close();
 }
 
-void* saveImageThreadFunc(void* arg)
-{
-    while(1)
-    {
-        pthread_mutex_lock(&saveQueue1Mutex);
-        while(saveQueue1.size() == 0)
-            pthread_cond_wait(&saveQueue1Cond, &saveQueue1Mutex);
-        const auto [image, path] = std::move(saveQueue1.front());
-        saveQueue1.pop_front();
-        pthread_mutex_unlock(&saveQueue1Mutex);
-
-        writeCvMat<uint8_t>(cv::Mat(height, width, CV_8UC1, image->GetData()), path.string());
-
-        pthread_testcancel();
-    }
-}
-
-void* savePhaseMapThreadFunc(void* arg)
-{
-    while(1)
-    {
-        pthread_mutex_lock(&saveQueue2Mutex);
-        while(saveQueue2.size() == 0)
-            pthread_cond_wait(&saveQueue2Cond, &saveQueue2Mutex);
-        const auto [phaseMap, path] = std::move(saveQueue2.front());
-        saveQueue2.pop_front();
-        pthread_mutex_unlock(&saveQueue2Mutex);
-
-        cv::Mat phaseMat(height, width, CV_32F);
-        cudaMemcpy(phaseMat.data, phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-        writeCvMat<float>(phaseMat, path.string());
-
-        pthread_testcancel();
-    }
-}
-
-// template <typename T>
-// void writeMat(T* data, size_t width, size_t height, boost::filesystem::path fileName)
+// void* saveImageThreadFunc(void* arg)
 // {
-//     std::ofstream file(fileName.string());
+//     while(1)
+//     {
+//         pthread_mutex_lock(&saveQueue1Mutex);
+//         while(saveQueue1.size() == 0)
+//             pthread_cond_wait(&saveQueue1Cond, &saveQueue1Mutex);
+//         const auto [image, path] = std::move(saveQueue1.front());
+//         saveQueue1.pop_front();
+//         pthread_mutex_unlock(&saveQueue1Mutex);
 
-//     if (!file.is_open()){
-//         std::cout << "Error: Could not write phase map to csv file\n";
-//         return;
-//     }
+//         writeCvMat<uint8_t>(cv::Mat(height, width, CV_8UC1, image->GetData()), path.string());
 
-//     for (int i = 0; i < height; i++){
-//         for (int j = 0; j < width; j++){
-//             file << *(data + i*j);
-//             if (j < height - 1)
-//                 file << ',';
-//         }
-//         file << '\n';
+//         pthread_testcancel();
 //     }
-//     file.close();
 // }
 
-// void writeMat(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> image, int width, int height, const std::string& fileName)
+// void* savePhaseMapThreadFunc(void* arg)
 // {
-//     if(phaseMap)
+//     while(1)
 //     {
-//         cv::Mat phaseMat(height, width, CV_32F, phaseMap.get());
-//         writeCvMat<float>(phaseMat, fileName);
-//         std::cout << "Phase map saved to " << fileName << std::endl; 
-//     }
+//         pthread_mutex_lock(&saveQueue2Mutex);
+//         while(saveQueue2.size() == 0)
+//             pthread_cond_wait(&saveQueue2Cond, &saveQueue2Mutex);
+//         const auto [phaseMap, path] = std::move(saveQueue2.front());
+//         saveQueue2.pop_front();
+//         pthread_mutex_unlock(&saveQueue2Mutex);
 
-//     if(image)
-//     {
-//         cv::Mat imageMat(height, width, CV_8UC1, image.get());
-//         writeCvMat<uint8_t>(imageMat, fileName);
-//         std::cout << "Image saved to " << fileName << std::endl; 
+//         cv::Mat phaseMat(height, width, CV_32F);
+//         cudaMemcpy(phaseMat.data, phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+//         writeCvMat<float>(phaseMat, path.string());
+
+//         pthread_testcancel();
 //     }
 // }
 
@@ -220,8 +172,8 @@ int main(int argc, char* argv[])
         }
     }
 
-    width = cameraConfig->width->GetValue();
-    height = cameraConfig->height->GetValue();
+    int width = cameraConfig->width->GetValue();
+    int height = cameraConfig->height->GetValue();
     GPU gpu(width, height, 40);
 
     pthread_t cameraThread;
@@ -231,11 +183,6 @@ int main(int argc, char* argv[])
         cam.close();
         return -1;
     }
-
-    pthread_t saveImageThread;
-    pthread_create(&saveImageThread, NULL, saveImageThreadFunc, NULL);
-    pthread_t savePhaseMapThread;
-    pthread_create(&saveImageThread, NULL, savePhaseMapThreadFunc, NULL);
 
     pthread_t gpuThread;
     if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
@@ -254,6 +201,10 @@ int main(int argc, char* argv[])
     {
         boost::filesystem::create_directory(imageFolder);
     }
+
+    boost::asio::io_service service;
+    boost::asio::io_service::work work(service);
+    std::thread workThread([&]{service.run();});
 
     while(mainWindow.ok())
     {
@@ -280,37 +231,32 @@ int main(int argc, char* argv[])
         
         if (mainWindow.nSavedPhaseMap > 0 && image.IsValid())
         {
-            boost::filesystem::path folder = mainWindow.path;
-            std::string fileName = mainWindow.fileName;
             std::shared_ptr<float> phaseMap = std::get<2>(tuple);
             //Save Phase Maps
             if(mainWindow.output && phaseMap)
             {
-                boost::filesystem::path filePath = folder / (fileName + "_phase" + 
+                boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + "_phase" + 
                 std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
-                filePath.replace_extension("csv");
+                path.replace_extension("csv");
 
-                pthread_mutex_lock(&saveQueue2Mutex);
-                saveQueue2.emplace_back(phaseMap, std::move(filePath));
-
-                pthread_cond_signal(&saveQueue2Cond);
-                pthread_mutex_unlock(&saveQueue2Mutex);
+                service.post([=]{
+                    writeCvMat<uint8_t>(cv::Mat(height, width, CV_8UC1, image->GetData()), path.string());
+                });
                 
             }
 
             if(mainWindow.input)
             {
-                boost::filesystem::path filePath = folder/ (fileName + "_image" + 
+                boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + "_image" + 
                     std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
                 
-                filePath.replace_extension("csv");
+                path.replace_extension("csv");
 
-                pthread_mutex_lock(&saveQueue1Mutex);
-
-                saveQueue1.emplace_back(image, std::move(filePath));
-
-                pthread_cond_signal(&saveQueue1Cond);
-                pthread_mutex_unlock(&saveQueue1Mutex);
+                service.post([=]{
+                    cv::Mat phaseMat(height, width, CV_32F);
+                    cudaMemcpy(phaseMat.data, phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+                    writeCvMat<float>(phaseMat, path.string());
+                });
                 
             }
 
@@ -339,5 +285,9 @@ int main(int argc, char* argv[])
     imageQueue2.clear();
 
     cam.close();
+
+    work.~work();
+    workThread.join();
+
     return 0;
 }

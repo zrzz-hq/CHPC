@@ -1,5 +1,6 @@
 #pragma once
 #include <GLFW/glfw3.h>
+#include <boost/filesystem.hpp>
 
 #include <functional>
 #include <vector>
@@ -127,17 +128,20 @@ class MainWindow: public WindowBase
     int numSuccessiveImages = 1;
     bool input = false;
     bool output = true;
-    std::string path;
-    char fileName[64] = "Image";
+
+    boost::filesystem::path folder;
+    std::string filename = "Image";
+    
 
     private:
     GLuint frameTexture;
     GLuint phaseTexture;
     
-    std::chrono::_V2::system_clock::time_point now;
-    std::chrono::_V2::system_clock::time_point last;
+    std::chrono::system_clock::time_point now;
+    std::chrono::system_clock::time_point last;
     int duration = 100000;
     int width;
     int height;
+    static int fileNameCallback(ImGuiInputTextCallbackData* data);
     std::shared_ptr<GPU::Config> gpuConfig_;
 };
