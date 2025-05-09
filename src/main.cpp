@@ -5,12 +5,14 @@
 #include <memory>
 #include <chrono>
 #include <queue>
-#include <fstream>
-#include <future>
+#include <mutex>
+#include <condition_variable>
+
 #include <pthread.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
+#include <boost/optional.hpp>
 
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -26,13 +28,62 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
-std::deque<Spinnaker::ImagePtr> imageQueue1;
-pthread_mutex_t imageQueue1Mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t imageQueue1Cond = PTHREAD_COND_INITIALIZER;
+template <typename T>
+class DataQueue
+{
+    public:
+    DataQueue()
+    {
 
-std::deque<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> imageQueue2;
-pthread_mutex_t imageQueue2Mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t imageQueue2Cond = PTHREAD_COND_INITIALIZER;
+    }
+
+    ~DataQueue()
+    {
+
+    }
+
+    T pop()
+    {
+        std::unique_lock lock(this->mutex);
+        this->cond.wait(lock, [this]{return queue.size() > 0;});
+        T data = std::move(this->queue.back());
+        this->queue.clear();
+        return data;
+    }
+
+    boost::optional<T> tryPop(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock lock(this->mutex);
+        if(!this->cond.wait_for(lock, timeout, [this]{return queue.size() > 0;}))
+            return boost::none;
+        
+        T data = std::move(this->queue.back());
+        this->queue.clear();
+        return data;
+    }
+
+    void push(T&& data)
+    {
+        std::unique_lock lock(this->mutex);
+        this->queue.push_back(std::move(data));
+        this->cond.notify_all();
+    }
+
+    void push(const T& data)
+    {
+        std::unique_lock lock(this->mutex);
+        this->queue.push_back(data);
+        this->cond.notify_all();
+    }
+
+    private:
+    std::deque<T> queue;
+    std::mutex mutex;
+    std::condition_variable cond;
+};
+
+DataQueue<Spinnaker::ImagePtr> queue1;
+DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> queue2;
 
 void cameraThreadCleanUp(void* arg)
 {
@@ -55,10 +106,7 @@ void* cameraThreadFunc(void* arg)
         
         if(imagePtr.IsValid())
         {
-            pthread_mutex_lock(&imageQueue1Mutex);
-            imageQueue1.push_back(imagePtr);
-            pthread_cond_signal(&imageQueue1Cond);
-            pthread_mutex_unlock(&imageQueue1Mutex);
+            queue1.push(imagePtr);
         }
     }
 
@@ -73,45 +121,15 @@ void* gpuThreadFunc(void* arg)
     GPU* gpu = reinterpret_cast<GPU*>(arg);
     while(1)
     {
-        pthread_mutex_lock(&imageQueue1Mutex);
-        while(imageQueue1.size() == 0)
-            pthread_cond_wait(&imageQueue1Cond, &imageQueue1Mutex);
-        auto image = imageQueue1.back();
-        imageQueue1.clear();
-        pthread_mutex_unlock(&imageQueue1Mutex);
+        auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
+        if(imageOpt)
+        {
+            Spinnaker::ImagePtr image = imageOpt.get();
+            auto [phaseMap, phaseImage] = gpu->run(image);
 
-        auto [phaseMap, phaseImage] = gpu->run(image);
-
-        pthread_mutex_lock(&imageQueue2Mutex);
-
-        imageQueue2.emplace_back(image, phaseImage, phaseMap);
-
-        pthread_cond_signal(&imageQueue2Cond);
-        pthread_mutex_unlock(&imageQueue2Mutex);
-
-        pthread_testcancel();
-    }
-}
-
-template <typename T>
-void writeCvMat(cv::Mat mat, const std::string& fileName)
-{
-    std::ofstream file(fileName);
-
-    if (!file.is_open()){
-        std::cout << "Error: Could not write phase map to csv file\n";
-        return;
-    }
-
-    for (int i = 0; i < mat.rows; i++){
-        for (int j = 0; j < mat.cols; j++){
-            file << std::to_string(mat.at<T>(i, j));
-            if (j < mat.cols-1)
-                file << ',';
+            queue2.push({image, phaseImage, phaseMap});
         }
-        file << '\n';
     }
-    file.close();
 }
 
 int main(int argc, char* argv[])
@@ -176,60 +194,55 @@ int main(int argc, char* argv[])
     {
         std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
 
-        pthread_mutex_lock(&imageQueue2Mutex);
-
-        if(imageQueue2.size() != 0)
-            tuple = std::move(imageQueue2.back());
-            imageQueue2.clear();
-        
-        pthread_mutex_unlock(&imageQueue2Mutex);
-
-        auto phaseImage = std::get<1>(tuple);
-        auto image = std::get<0>(tuple);
-        if(image.IsValid())
+        auto tupleOpt = queue2.tryPop(std::chrono::milliseconds(0));
+        if(tupleOpt)
         {
-            mainWindow.updateFrame(image->GetData());
-        }
-        if(phaseImage != nullptr)
-        {
-            mainWindow.updatePhase(phaseImage.get());
-        }
-        
-        if (mainWindow.nSavedPhaseMap > 0 && image.IsValid())
-        {
-            std::shared_ptr<float> phaseMap = std::get<2>(tuple);
-            //Save Phase Maps
-            if(mainWindow.output && phaseMap)
+            const auto& [image, phaseImage, phaseMap] = tupleOpt.get();
+            if(image.IsValid())
             {
-                boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + 
-                std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
-                path.replace_extension("npy");
-                
-                service.post([=]{
-                    std::vector<float> phaseMat(width*height, 0);
-                    cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-                    cnpy::npy_save(
-                        path.string(), 
-                        phaseMat.data(),
-                        {static_cast<size_t>(width), static_cast<size_t>(height)}
-                    );
-                });
+                mainWindow.updateFrame(image->GetData());
             }
-
-            if(mainWindow.input)
+            if(phaseImage != nullptr)
             {
-                boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + 
+                mainWindow.updatePhase(phaseImage.get());
+            }
+        
+            if (mainWindow.nSavedPhaseMap > 0 && image.IsValid())
+            {
+                //Save Phase Maps
+                if(mainWindow.output && phaseMap)
+                {
+                    boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + 
                     std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
-                
-                path.replace_extension("png");
+                    path.replace_extension("npy");
+                    
+                    service.post([=]{
+                        std::vector<float> phaseMat(width*height, 0);
+                        cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+                        cnpy::npy_save(
+                            path.string(), 
+                            phaseMat.data(),
+                            {static_cast<size_t>(width), static_cast<size_t>(height)}
+                        );
+                    });
+                }
 
-                service.post([=]{
-                    cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
-                    cv::imwrite(path.string(), imageMat);
-                });   
+                if(mainWindow.input)
+                {
+                    boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + 
+                        std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
+                    
+                    path.replace_extension("png");
+
+                    service.post([=]{
+                        cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
+                        cv::imwrite(path.string(), imageMat);
+                    });   
+                }
+
+                mainWindow.nSavedPhaseMap--;
             }
 
-            mainWindow.nSavedPhaseMap--;
         }
 
         mainWindow.spinOnce();
@@ -240,9 +253,6 @@ int main(int argc, char* argv[])
 
     pthread_cancel(gpuThread);
     pthread_join(gpuThread, NULL);
-
-    imageQueue1.clear();
-    imageQueue2.clear();
 
     cam.close();
 
