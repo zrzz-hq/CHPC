@@ -130,7 +130,7 @@ class MainWindow: public WindowBase
     bool output = true;
 
     boost::filesystem::path folder;
-    std::string filename = "Image";
+    std::string filename = "data";
     
 
     private:

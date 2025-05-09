@@ -18,6 +18,8 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "cnpy.h"
+
 #define WIDTH 720
 #define HEIGHT 540
 #define FRAMERATE 60
@@ -112,42 +114,6 @@ void writeCvMat(cv::Mat mat, const std::string& fileName)
     file.close();
 }
 
-// void* saveImageThreadFunc(void* arg)
-// {
-//     while(1)
-//     {
-//         pthread_mutex_lock(&saveQueue1Mutex);
-//         while(saveQueue1.size() == 0)
-//             pthread_cond_wait(&saveQueue1Cond, &saveQueue1Mutex);
-//         const auto [image, path] = std::move(saveQueue1.front());
-//         saveQueue1.pop_front();
-//         pthread_mutex_unlock(&saveQueue1Mutex);
-
-//         writeCvMat<uint8_t>(cv::Mat(height, width, CV_8UC1, image->GetData()), path.string());
-
-//         pthread_testcancel();
-//     }
-// }
-
-// void* savePhaseMapThreadFunc(void* arg)
-// {
-//     while(1)
-//     {
-//         pthread_mutex_lock(&saveQueue2Mutex);
-//         while(saveQueue2.size() == 0)
-//             pthread_cond_wait(&saveQueue2Cond, &saveQueue2Mutex);
-//         const auto [phaseMap, path] = std::move(saveQueue2.front());
-//         saveQueue2.pop_front();
-//         pthread_mutex_unlock(&saveQueue2Mutex);
-
-//         cv::Mat phaseMat(height, width, CV_32F);
-//         cudaMemcpy(phaseMat.data, phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-//         writeCvMat<float>(phaseMat, path.string());
-
-//         pthread_testcancel();
-//     }
-// }
-
 int main(int argc, char* argv[])
 {
     FLIRCamera cam;
@@ -237,12 +203,17 @@ int main(int argc, char* argv[])
             {
                 boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + "_phase" + 
                 std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
-                path.replace_extension("csv");
-
-                service.post([=]{
-                    writeCvMat<uint8_t>(cv::Mat(height, width, CV_8UC1, image->GetData()), path.string());
-                });
+                path.replace_extension("npy");
                 
+                service.post([=]{
+                    std::vector<float> phaseMat(width*height, 0);
+                    cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+                    cnpy::npy_save(
+                        path.string(), 
+                        phaseMat.data(),
+                        {static_cast<size_t>(width), static_cast<size_t>(height)}
+                    );
+                });
             }
 
             if(mainWindow.input)
@@ -250,14 +221,15 @@ int main(int argc, char* argv[])
                 boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + "_image" + 
                     std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
                 
-                path.replace_extension("csv");
+                path.replace_extension("npy");
 
                 service.post([=]{
-                    cv::Mat phaseMat(height, width, CV_32F);
-                    cudaMemcpy(phaseMat.data, phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-                    writeCvMat<float>(phaseMat, path.string());
-                });
-                
+                    cnpy::npy_save(
+                        path.string(), 
+                        reinterpret_cast<uint8_t*>(image->GetData()), 
+                        {static_cast<size_t>(width), static_cast<size_t>(height)}
+                    );
+                });   
             }
 
             mainWindow.nSavedPhaseMap--;
@@ -265,15 +237,6 @@ int main(int argc, char* argv[])
 
         mainWindow.spinOnce();
     }
-
-    // pthread_cancel(saveImageThread);
-    // pthread_join(saveImageThread, NULL);
-
-    // pthread_cancel(savePhaseMapThread);
-    // pthread_join(savePhaseMapThread, NULL);
-
-    // saveQueue1.clear();
-    // saveQueue2.clear();
 
     pthread_cancel(cameraThread);
     pthread_join(cameraThread, NULL);

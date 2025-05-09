@@ -10,6 +10,7 @@ find_package(CUDA REQUIRED 10)
 find_package(Boost REQUIRED COMPONENTS filesystem system)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(ZLIB REQUIRED)
 
 include_directories(
     /opt/spinnaker/include/ 
@@ -39,7 +40,8 @@ add_library(imgui
 
 target_link_libraries(imgui OpenGL::GL glfw)
 # Add executable
-add_executable(PhaseVisualizer 
+add_executable(PhaseVisualizer
+    src/cnpy.cpp
     src/main.cpp 
     src/FLIRCamera.cpp 
     src/GPU.cpp 
@@ -58,4 +60,5 @@ target_link_libraries(PhaseVisualizer
     OpenGL::GL 
     glfw
     imgui
+    ZLIB::ZLIB
 )
