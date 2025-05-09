@@ -28,6 +28,9 @@
 #define EXPOSURETIME -1
 #define GAIN 0
 
+std::atomic<bool> cameraExited = false;
+std::atomic<bool> gpuExited = false;
+
 template <typename T>
 class DataQueue
 {
@@ -76,6 +79,12 @@ class DataQueue
         this->cond.notify_all();
     }
 
+    void clear()
+    {
+        std::unique_lock lock(this->mutex);
+        this->queue.clear();
+    }
+
     private:
     std::deque<T> queue;
     std::mutex mutex;
@@ -90,6 +99,7 @@ void cameraThreadCleanUp(void* arg)
     FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
 
     cam->stop();
+    cameraExited = true;
 
     std::cout << "camera thread exited" << std::endl;
 }
@@ -253,6 +263,9 @@ int main(int argc, char* argv[])
 
     pthread_cancel(gpuThread);
     pthread_join(gpuThread, NULL);
+
+    queue1.clear();
+    queue2.clear();
 
     cam.close();
 
