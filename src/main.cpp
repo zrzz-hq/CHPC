@@ -8,11 +8,10 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <pthread.h>
-
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
+#include <boost/thread.hpp>
 
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -27,9 +26,6 @@
 #define FRAMERATE 60
 #define EXPOSURETIME -1
 #define GAIN 0
-
-std::atomic<bool> cameraExited = false;
-std::atomic<bool> gpuExited = false;
 
 template <typename T>
 class DataQueue
@@ -94,53 +90,57 @@ class DataQueue
 DataQueue<Spinnaker::ImagePtr> queue1;
 DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> queue2;
 
-void cameraThreadCleanUp(void* arg)
+auto cameraThreadFunc = [](FLIRCamera* cam)
 {
-    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
-
-    cam->stop();
-    cameraExited = true;
-
-    std::cout << "camera thread exited" << std::endl;
-}
-
-void* cameraThreadFunc(void* arg)
-{
-    pthread_cleanup_push(cameraThreadCleanUp, arg);
-    FLIRCamera* cam = reinterpret_cast<FLIRCamera*>(arg);
-
     cam->start();
-    while(1)
+    try
     {
-        Spinnaker::ImagePtr imagePtr = cam->read();
-        
-        if(imagePtr.IsValid())
+        while(1)
         {
-            queue1.push(imagePtr);
+            Spinnaker::ImagePtr imagePtr = cam->read();
+            
+            if(imagePtr.IsValid())
+            {
+                queue1.push(imagePtr);
+            }
+
+            boost::this_thread::interruption_point();
         }
+    }
+    catch(boost::thread_interrupted& i)
+    {
+        std::cout << "Camera thread exited!\n";
     }
 
     cam->stop();
 
-    pthread_cleanup_pop(1);
     return 0;
-}
+};
 
-void* gpuThreadFunc(void* arg)
+auto gpuThreadFunc = [](GPU* gpu)
 {
-    GPU* gpu = reinterpret_cast<GPU*>(arg);
-    while(1)
+    try
     {
-        auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
-        if(imageOpt)
+        while(1)
         {
-            Spinnaker::ImagePtr image = imageOpt.get();
-            auto [phaseMap, phaseImage] = gpu->run(image);
+            auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
+            if(imageOpt)
+            {
+                Spinnaker::ImagePtr image = imageOpt.get();
+                auto [phaseMap, phaseImage] = gpu->run(image);
 
-            queue2.push({image, phaseImage, phaseMap});
+                queue2.push({image, phaseImage, phaseMap});
+            }
+
+            boost::this_thread::interruption_point();
         }
     }
-}
+    catch(const boost::thread_interrupted& i)
+    {
+        std::cout << "Gpu thread exited!\n";
+    }
+    
+};
 
 int main(int argc, char* argv[])
 {
@@ -170,23 +170,8 @@ int main(int argc, char* argv[])
     int height = cameraConfig->height->GetValue();
     GPU gpu(width, height, 40);
 
-    pthread_t cameraThread;
-    if(pthread_create(&cameraThread, NULL, cameraThreadFunc, &cam) == -1)
-    {
-        std::cout << "Failed to create camera thread" << std::endl;
-        cam.close();
-        return -1;
-    }
-
-    pthread_t gpuThread;
-    if(pthread_create(&gpuThread, NULL, gpuThreadFunc, &gpu) == -1)
-    {
-        std::cout << "Failed to create gpu thread" << std::endl;
-        cam.close();
-        pthread_cancel(cameraThread);
-        pthread_join(cameraThread, NULL);
-        return -1;
-    }
+    boost::thread cameraThread(cameraThreadFunc, &cam);
+    boost::thread gpuThread(gpuThreadFunc, &gpu);
 
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
 
@@ -258,11 +243,11 @@ int main(int argc, char* argv[])
         mainWindow.spinOnce();
     }
 
-    pthread_cancel(cameraThread);
-    pthread_join(cameraThread, NULL);
+    cameraThread.interrupt();
+    cameraThread.join();
 
-    pthread_cancel(gpuThread);
-    pthread_join(gpuThread, NULL);
+    gpuThread.interrupt();
+    gpuThread.join();
 
     queue1.clear();
     queue2.clear();
