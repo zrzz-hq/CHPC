@@ -119,7 +119,7 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
 {
     float* newImageDev = buffers.back();
 
-    cudaError_t error = cudaMemcpy(imageBuffer, newImage->GetData(), N, cudaMemcpyHostToDevice);
+    cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N, cudaMemcpyHostToDevice, stream1);
     if(error != cudaSuccess)
     {
         std::cout << "Failed to copy image memory: " << cudaGetErrorString(error) << std::endl;
@@ -157,7 +157,7 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
     switch (config->algorithmIndex)
     {
     case 0:
-        novak<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+        novak<<<blockPerGrid,threadPerBlock, 0, stream1>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
@@ -167,7 +167,7 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
                                         N);
         break;
     case 1:
-        four_point<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+        four_point<<<blockPerGrid,threadPerBlock, 0, stream1>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
@@ -176,7 +176,7 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
                                         N);
         break;
     case 2:
-        carres<<<blockPerGrid,threadPerBlock, 0, stream2>>>(buffers[0],
+        carres<<<blockPerGrid,threadPerBlock, 0, stream1>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
@@ -187,7 +187,7 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
         break;
     }
 
-    error = cudaStreamSynchronize(stream2);
+    error = cudaStreamSynchronize(stream1);
     if(error != cudaSuccess)
     {
         std::cout << "Failed to run phase algorithm: " << cudaGetErrorString(error) << std::endl;

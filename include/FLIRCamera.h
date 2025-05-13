@@ -40,7 +40,7 @@ public:
   bool start();
   void stop();
   void close();
-  ImagePtr read();
+  ImagePtr read(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
   
 
   // bool setFPS(double fps);

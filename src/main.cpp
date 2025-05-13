@@ -87,46 +87,21 @@ class DataQueue
     std::condition_variable cond;
 };
 
-DataQueue<Spinnaker::ImagePtr> queue1;
 DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> queue2;
 
-auto cameraThreadFunc = [](FLIRCamera* cam)
+auto gpuThreadFunc = [](FLIRCamera* cam, GPU* gpu)
 {
     cam->start();
+
     try
     {
         while(1)
         {
-            Spinnaker::ImagePtr imagePtr = cam->read();
-            
-            if(imagePtr.IsValid())
+            Spinnaker::ImagePtr image = cam->read(std::chrono::milliseconds(100));
+            // auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
+            if(image.IsValid())
             {
-                queue1.push(imagePtr);
-            }
-
-            boost::this_thread::interruption_point();
-        }
-    }
-    catch(boost::thread_interrupted& i)
-    {
-        std::cout << "Camera thread exited!\n";
-    }
-
-    cam->stop();
-
-    return 0;
-};
-
-auto gpuThreadFunc = [](GPU* gpu)
-{
-    try
-    {
-        while(1)
-        {
-            auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
-            if(imageOpt)
-            {
-                Spinnaker::ImagePtr image = imageOpt.get();
+                // Spinnaker::ImagePtr image = imageOpt.get();
                 auto [phaseMap, phaseImage] = gpu->run(image);
 
                 queue2.push({image, phaseImage, phaseMap});
@@ -139,7 +114,8 @@ auto gpuThreadFunc = [](GPU* gpu)
     {
         std::cout << "Gpu thread exited!\n";
     }
-    
+
+    cam->stop();
 };
 
 int main(int argc, char* argv[])
@@ -170,8 +146,7 @@ int main(int argc, char* argv[])
     int height = cameraConfig->height->GetValue();
     GPU gpu(width, height, 40);
 
-    boost::thread cameraThread(cameraThreadFunc, &cam);
-    boost::thread gpuThread(gpuThreadFunc, &gpu);
+    boost::thread gpuThread(gpuThreadFunc, &cam, &gpu);
 
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
 
@@ -243,13 +218,9 @@ int main(int argc, char* argv[])
         mainWindow.spinOnce();
     }
 
-    cameraThread.interrupt();
-    cameraThread.join();
-
     gpuThread.interrupt();
     gpuThread.join();
 
-    queue1.clear();
     queue2.clear();
 
     cam.close();

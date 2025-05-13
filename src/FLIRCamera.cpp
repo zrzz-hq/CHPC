@@ -180,7 +180,7 @@ void FLIRCamera::stop()
     }
 }
 
-ImagePtr FLIRCamera::read()
+ImagePtr FLIRCamera::read(std::chrono::milliseconds timeout)
 {
     ImagePtr pResultImage = nullptr;
 
@@ -189,7 +189,7 @@ ImagePtr FLIRCamera::read()
         // std::cout << "Input buffer count: " << mCam->TLStream.StreamInputBufferCount.GetValue() << std::endl;
         // std::cout << "Lost buffer count: " << mCam->TLStream.StreamLostFrameCount.GetValue() << std::endl;
         // Retrieve next received image
-        pResultImage = mCam->GetNextImage(100);
+        pResultImage = mCam->GetNextImage(timeout.count());
 
         // Ensure image is complete
         if (pResultImage->IsIncomplete())
