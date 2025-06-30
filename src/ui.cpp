@@ -439,7 +439,7 @@ void MainWindow::render()
 
     ImGui::Text("Number"); ImGui::SameLine(childWidth/2);
     if(ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1)){
-        numSuccessiveImages = std::max(0,std::min(numSuccessiveImages, 10));
+        numSuccessiveImages = std::max(0, numSuccessiveImages);
 
     }
     ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
