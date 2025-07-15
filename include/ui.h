@@ -130,7 +130,9 @@ class MainWindow: public WindowBase
     bool output = true;
 
     boost::filesystem::path folder;
-    std::string filename = "data";
+    boost::filesystem::path filename;
+    std::string filenameBuffer = "data";
+    bool invalidFilename = false;
     
 
     private:

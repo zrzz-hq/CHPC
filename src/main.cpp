@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
                 //Save Phase Maps
                 if(mainWindow.output && phaseMap)
                 {
-                    boost::filesystem::path path = mainWindow.folder / (mainWindow.filename + 
+                    boost::filesystem::path path = mainWindow.folder / (mainWindow.filename.string() + 
                     std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
                     path.replace_extension("npy");
                     
@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
 
                 if(mainWindow.input)
                 {
-                    boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename + 
+                    boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename.string() + 
                         std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
                     
                     path.replace_extension("png");

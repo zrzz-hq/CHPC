@@ -443,26 +443,38 @@ void MainWindow::render()
 
     }
     ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
-    ImGui::InputText("##File Name", const_cast<char*>(filename.c_str()), filename.capacity() + 1, 
-                    ImGuiInputTextFlags_CallbackResize, fileNameCallback, &filename);
+    if(ImGui::InputText("##File Name", const_cast<char*>(filenameBuffer.c_str()), filenameBuffer.capacity() + 1, 
+                    ImGuiInputTextFlags_CallbackResize, fileNameCallback, &filenameBuffer))
+    {
+        filename = filenameBuffer;
+        if(filename.filename() != filenameBuffer)
+            invalidFilename = true; 
+        else
+            invalidFilename = false;
+    }
 
     ImGui::Checkbox("Save Image", &input); 
     ImGui::SameLine();
     ImGui::Checkbox("Save PhaseMap", &output); 
 
-    if (ImGui::Button("Save")) 
+    if(nSavedPhaseMap == 0 && !invalidFilename)
     {
-        //Save Phase Map flag
-        nSavedPhaseMap = numSuccessiveImages;
+        if (ImGui::Button("Save")) 
+        {
+            //Save Phase Map flag
+            nSavedPhaseMap = numSuccessiveImages;
+        }
     }
-    // float buttonWidth = 100.0f; // Your button width
-    // float xOffset = (childWidth - buttonWidth) * 0.5f;
-    // ImGui::SetCursorPosX(xOffset);
-    // if (ImGui::Button("Save Both")) 
-    // {
-    //     //Save input flag
-    // }
+    else
+    {
+        ImGui::BeginDisabled();
+        ImGui::Button("Save");
+        ImGui::EndDisabled();
+    }
 
+    ImGui::SameLine();
+    ImGui::Text("%d", nSavedPhaseMap);
+    
     ImGui::PopItemWidth();
     ImGui::EndChild();
 
