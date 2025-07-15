@@ -176,41 +176,39 @@ int main(int argc, char* argv[])
             {
                 mainWindow.updatePhase(phaseImage.get());
             }
-        
-            if (mainWindow.nSavedPhaseMap > 0 && image.IsValid())
+
+            //Save Phase Maps
+            if(mainWindow.nPhaseMapToSave > 0 && phaseMap)
             {
-                //Save Phase Maps
-                if(mainWindow.output && phaseMap)
-                {
+                service.post([=, &mainWindow]{
                     boost::filesystem::path path = mainWindow.folder / (mainWindow.filename.string() + 
-                    std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
+                    std::to_string(mainWindow.nSavedPhaseMap));
                     path.replace_extension("npy");
-                    
-                    service.post([=]{
-                        std::vector<float> phaseMat(width*height, 0);
-                        cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-                        cnpy::npy_save(
-                            path.string(), 
-                            phaseMat.data(),
-                            {static_cast<size_t>(width), static_cast<size_t>(height)}
-                        );
-                    });
-                }
+                    std::vector<float> phaseMat(width*height, 0);
+                    cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+                    cnpy::npy_save(
+                        path.string(), 
+                        phaseMat.data(),
+                        {static_cast<size_t>(width), static_cast<size_t>(height)}
+                    );
+                    mainWindow.nSavedPhaseMap ++;
+                });
 
-                if(mainWindow.input)
-                {
+                mainWindow.nPhaseMapToSave --;
+            }
+
+            if(mainWindow.nImageToSave && image.IsValid())
+            {
+                service.post([=, &mainWindow]{
                     boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename.string() + 
-                        std::to_string(mainWindow.numSuccessiveImages - mainWindow.nSavedPhaseMap));
-                    
+                    std::to_string(mainWindow.nSavedImage));
                     path.replace_extension("png");
+                    cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
+                    cv::imwrite(path.string(), imageMat);
+                    mainWindow.nSavedImage ++;
+                }); 
 
-                    service.post([=]{
-                        cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
-                        cv::imwrite(path.string(), imageMat);
-                    });   
-                }
-
-                mainWindow.nSavedPhaseMap--;
+                mainWindow.nImageToSave --;  
             }
 
         }

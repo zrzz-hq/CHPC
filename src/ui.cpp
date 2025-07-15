@@ -438,8 +438,8 @@ void MainWindow::render()
     ImGui::Separator();
 
     ImGui::Text("Number"); ImGui::SameLine(childWidth/2);
-    if(ImGui::InputInt("##numSuccessiveImages", &numSuccessiveImages, 1)){
-        numSuccessiveImages = std::max(0, numSuccessiveImages);
+    if(ImGui::InputInt("##numSuccessiveImages", &saveCount, 1)){
+        saveCount = std::max(0, saveCount);
 
     }
     ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
@@ -453,16 +453,23 @@ void MainWindow::render()
             invalidFilename = false;
     }
 
-    ImGui::Checkbox("Save Image", &input); 
+    ImGui::Checkbox("Save Image", &saveImage); 
     ImGui::SameLine();
-    ImGui::Checkbox("Save PhaseMap", &output); 
+    ImGui::Checkbox("Save PhaseMap", &savePhaseMap); 
 
-    if(nSavedPhaseMap == 0 && !invalidFilename)
+    if(nPhaseMapToSave == 0 && nImageToSave == 0 && !invalidFilename)
     {
         if (ImGui::Button("Save")) 
         {
             //Save Phase Map flag
-            nSavedPhaseMap = numSuccessiveImages;
+            if(savePhaseMap)
+            {
+                nPhaseMapToSave = saveCount;
+            }
+            if(saveImage)
+            {
+                nImageToSave = saveCount;
+            }
         }
     }
     else
@@ -473,8 +480,8 @@ void MainWindow::render()
     }
 
     ImGui::SameLine();
-    ImGui::Text("%d", nSavedPhaseMap);
-    
+    ImGui::Text("%d %d", nSavedImage.load(), nSavedPhaseMap.load());
+
     ImGui::PopItemWidth();
     ImGui::EndChild();
 

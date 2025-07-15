@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <atomic>
 #include <chrono>
 #include <unordered_map>
 
@@ -124,10 +125,14 @@ class MainWindow: public WindowBase
     void updateFrame(void* frameData);
     void updatePhase(void* phaseData);
     void render() final;
-    int nSavedPhaseMap = 0;
-    int numSuccessiveImages = 1;
-    bool input = false;
-    bool output = true;
+
+    int saveCount = 0;
+    bool savePhaseMap = false;
+    bool saveImage = false;
+    int nPhaseMapToSave = 0;
+    int nImageToSave = 0;
+    std::atomic<int> nSavedPhaseMap = 0;
+    std::atomic<int> nSavedImage = 0;
 
     boost::filesystem::path folder;
     boost::filesystem::path filename;
