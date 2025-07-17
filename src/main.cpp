@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
                     cnpy::npy_save(
                         path.string(), 
                         phaseMat.data(),
-                        {static_cast<size_t>(width), static_cast<size_t>(height)}
+                        {static_cast<size_t>(height), static_cast<size_t>(width)}
                     );
                     mainWindow.nSavedPhaseMap ++;
                 });
