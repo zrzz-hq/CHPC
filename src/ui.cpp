@@ -8,6 +8,8 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 
+#include "cnpy.h"
+
 using namespace Spinnaker;
 using namespace GenApi;
 
@@ -306,7 +308,9 @@ void StartupWindow::render()
 
 MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig):
     WindowBase(1200, 600, "PhaseVisualizer"),
-    gpuConfig_(gpuConfig)
+    gpuConfig_(gpuConfig),
+    work(std::make_unique<boost::asio::io_service::work>(service)),
+    workThread([&]{service.run();})
 {
     width = cameraConfig->width->GetValue();
     height = cameraConfig->height->GetValue();
@@ -328,7 +332,7 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::sh
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     folder = (boost::filesystem::absolute(".").parent_path() / "images").string();
-    if(boost::filesystem::exists(folder))
+    if(!boost::filesystem::exists(folder))
     {
         boost::filesystem::create_directories(folder);
     }
@@ -336,15 +340,31 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::sh
 
 MainWindow::~MainWindow()
 {
-
+    work.reset();
+    service.stop();
+    workThread.join();
 }
 
-void MainWindow::updateFrame(Spinnaker::ImagePtr frameData)
+void MainWindow::updateImage(Spinnaker::ImagePtr image)
 {
-    if(frameData.IsValid())
+    if(image.IsValid())
     {
         glBindTexture(GL_TEXTURE_2D, frameTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, frameData->GetData());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, image->GetData());
+
+        if(nImageToSave)
+        {
+            service.post([this, image]{
+                boost::filesystem::path path = folder/ (filename.string() + 
+                std::to_string(nSavedImage));
+                path.replace_extension("png");
+                cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
+                cv::imwrite(path.string(), imageMat);
+                nSavedImage ++;
+            }); 
+
+            nImageToSave --;  
+        }
     }
 }
 
@@ -358,6 +378,25 @@ void MainWindow::updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<ui
         now = std::chrono::system_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
         last = now;
+    }
+
+    if(nPhaseMapToSave > 0 && phaseMap)
+    {
+        service.post([this, phaseMap]{
+            boost::filesystem::path path = folder / (filename.string() + 
+            std::to_string(nSavedPhaseMap));
+            path.replace_extension("npy");
+            std::vector<float> phaseMat(width*height, 0);
+            cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+            cnpy::npy_save(
+                path.string(), 
+                phaseMat.data(),
+                {static_cast<size_t>(height), static_cast<size_t>(width)}
+            );
+            nSavedPhaseMap ++;
+        });
+
+        nPhaseMapToSave --;
     }
 }
 

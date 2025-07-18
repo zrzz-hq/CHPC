@@ -1,6 +1,8 @@
 #pragma once
 #include <GLFW/glfw3.h>
 #include <boost/filesystem.hpp>
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
 
 #include <functional>
 #include <vector>
@@ -122,9 +124,25 @@ class MainWindow: public WindowBase
     MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig);
     ~MainWindow();
 
-    void updateFrame(Spinnaker::ImagePtr frameData);
+    void updateImage(Spinnaker::ImagePtr image);
     void updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage);
     void render() final;
+
+    private:
+    GLuint frameTexture;
+    GLuint phaseTexture;
+
+    boost::asio::io_service service;
+    std::unique_ptr<boost::asio::io_service::work> work;
+    std::thread workThread;
+    
+    std::chrono::system_clock::time_point now;
+    std::chrono::system_clock::time_point last;
+    int duration = 100000;
+    int width;
+    int height;
+    static int fileNameCallback(ImGuiInputTextCallbackData* data);
+    std::shared_ptr<GPU::Config> gpuConfig_;
 
     int saveCount = 0;
     bool savePhaseMap = false;
@@ -135,20 +153,7 @@ class MainWindow: public WindowBase
     std::atomic<int> nSavedImage = 0;
 
     boost::filesystem::path folder;
-    boost::filesystem::path filename;
     std::string filenameBuffer = "data";
+    boost::filesystem::path filename = filenameBuffer;
     bool invalidFilename = false;
-    
-
-    private:
-    GLuint frameTexture;
-    GLuint phaseTexture;
-    
-    std::chrono::system_clock::time_point now;
-    std::chrono::system_clock::time_point last;
-    int duration = 100000;
-    int width;
-    int height;
-    static int fileNameCallback(ImGuiInputTextCallbackData* data);
-    std::shared_ptr<GPU::Config> gpuConfig_;
 };

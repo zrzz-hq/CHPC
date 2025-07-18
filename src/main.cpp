@@ -9,7 +9,6 @@
 #include <condition_variable>
 
 #include <boost/filesystem.hpp>
-#include <boost/asio.hpp>
 #include <boost/optional.hpp>
 #include <boost/thread.hpp>
 
@@ -18,8 +17,6 @@
 #include <GLFW/glfw3.h>
 
 #include <opencv2/opencv.hpp>
-
-#include "cnpy.h"
 
 #define WIDTH 720
 #define HEIGHT 540
@@ -150,16 +147,6 @@ int main(int argc, char* argv[])
 
     MainWindow mainWindow(cameraConfig, gpu.getConfig());
 
-    boost::filesystem::path imageFolder("images");
-    if(!boost::filesystem::exists(imageFolder))
-    {
-        boost::filesystem::create_directory(imageFolder);
-    }
-
-    boost::asio::io_service service;
-    boost::asio::io_service::work work(service);
-    std::thread workThread([&]{service.run();});
-
     while(mainWindow.ok())
     {
         std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
@@ -168,43 +155,8 @@ int main(int argc, char* argv[])
         if(tupleOpt)
         {
             const auto& [image, phaseImage, phaseMap] = tupleOpt.get();
-            mainWindow.updateFrame(image);
+            mainWindow.updateImage(image);
             mainWindow.updatePhase(phaseMap, phaseImage);
-
-            //Save Phase Maps
-            if(mainWindow.nPhaseMapToSave > 0 && phaseMap)
-            {
-                service.post([=, &mainWindow]{
-                    boost::filesystem::path path = mainWindow.folder / (mainWindow.filename.string() + 
-                    std::to_string(mainWindow.nSavedPhaseMap));
-                    path.replace_extension("npy");
-                    std::vector<float> phaseMat(width*height, 0);
-                    cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-                    cnpy::npy_save(
-                        path.string(), 
-                        phaseMat.data(),
-                        {static_cast<size_t>(height), static_cast<size_t>(width)}
-                    );
-                    mainWindow.nSavedPhaseMap ++;
-                });
-
-                mainWindow.nPhaseMapToSave --;
-            }
-
-            if(mainWindow.nImageToSave && image.IsValid())
-            {
-                service.post([=, &mainWindow]{
-                    boost::filesystem::path path = mainWindow.folder/ (mainWindow.filename.string() + 
-                    std::to_string(mainWindow.nSavedImage));
-                    path.replace_extension("png");
-                    cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
-                    cv::imwrite(path.string(), imageMat);
-                    mainWindow.nSavedImage ++;
-                }); 
-
-                mainWindow.nImageToSave --;  
-            }
-
         }
 
         mainWindow.spinOnce();
@@ -214,12 +166,7 @@ int main(int argc, char* argv[])
     gpuThread.join();
 
     queue2.clear();
-
     cam.close();
-
-    work.~work();
-    service.stop();
-    workThread.join();
 
     return 0;
 }
