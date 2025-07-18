@@ -168,14 +168,8 @@ int main(int argc, char* argv[])
         if(tupleOpt)
         {
             const auto& [image, phaseImage, phaseMap] = tupleOpt.get();
-            if(image.IsValid())
-            {
-                mainWindow.updateFrame(image->GetData());
-            }
-            if(phaseImage != nullptr)
-            {
-                mainWindow.updatePhase(phaseImage.get());
-            }
+            mainWindow.updateFrame(image);
+            mainWindow.updatePhase(phaseMap, phaseImage);
 
             //Save Phase Maps
             if(mainWindow.nPhaseMapToSave > 0 && phaseMap)

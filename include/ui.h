@@ -122,8 +122,8 @@ class MainWindow: public WindowBase
     MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig);
     ~MainWindow();
 
-    void updateFrame(void* frameData);
-    void updatePhase(void* phaseData);
+    void updateFrame(Spinnaker::ImagePtr frameData);
+    void updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage);
     void render() final;
 
     int saveCount = 0;

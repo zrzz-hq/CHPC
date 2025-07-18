@@ -339,21 +339,21 @@ MainWindow::~MainWindow()
 
 }
 
-void MainWindow::updateFrame(void* frameData)
+void MainWindow::updateFrame(Spinnaker::ImagePtr frameData)
 {
-    if(frameData != nullptr)
+    if(frameData.IsValid())
     {
         glBindTexture(GL_TEXTURE_2D, frameTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, frameData);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, frameData->GetData());
     }
 }
 
-void MainWindow::updatePhase(void* phaseData)
+void MainWindow::updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage)
 {
-    if(phaseData != nullptr)
+    if(phaseImage != nullptr)
     {
         glBindTexture(GL_TEXTURE_2D, phaseTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, phaseData);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, phaseImage.get());
         
         now = std::chrono::system_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
