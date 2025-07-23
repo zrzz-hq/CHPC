@@ -157,6 +157,7 @@ class MainWindow: public WindowBase
 
     DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> loadQueue;
 
+    const int nbuffers = 40;
     boost::lockfree::queue<uint8_t*> phaseImageBufferPool;
     boost::lockfree::queue<float*> phaseMapBufferPool;
 

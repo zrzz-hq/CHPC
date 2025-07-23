@@ -318,15 +318,15 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera> cam):
     WindowBase(1200, 600, "PhaseVisualizer"),
     work(std::make_unique<boost::asio::io_service::work>(service)),
     workThread([&]{service.run();}),
-    phaseImageBufferPool(40),
-    phaseMapBufferPool(40)
+    phaseImageBufferPool(nbuffers),
+    phaseMapBufferPool(nbuffers)
 {
     std::shared_ptr<FLIRCamera::Config> cameraConfig = cam->getConfig();
     width = cameraConfig->width->GetValue();
     height = cameraConfig->height->GetValue();
     gpu = std::make_shared<GPU>(width, height);
 
-    for(int i=0; i<40; i++)
+    for(int i=0; i<nbuffers; i++)
     {
         float* phaseMapBuffer;
         cudaError_t error = cudaMalloc(&phaseMapBuffer, width*height*sizeof(float));
