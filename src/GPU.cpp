@@ -11,10 +11,7 @@ extern "C" {
 }
 #endif
 
-GPU::GPU(int width, int height, size_t nPhaseBuffers):
-    cosineBuffers(nPhaseBuffers),
-    phaseBuffers(nPhaseBuffers),
-    config(std::make_shared<GPU::Config>())
+GPU::GPU(int width, int height)
 {
     eleCount = 0;
     N = width * height;
@@ -22,17 +19,6 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
     blockPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
 
     cudaError_t error;
-
-    for(int i=0; i<nPhaseBuffers; i++)
-    {
-        float* phaseBuffer;
-        error = cudaMalloc(&phaseBuffer, N*sizeof(float));
-        if(error != cudaSuccess)
-        {
-            throw std::runtime_error("Failed to allocate cuda memory: " + std::string(cudaGetErrorString(error)));
-        }
-        phaseBuffers.push(phaseBuffer);
-    }
 
     error = cudaMalloc(&imageBuffer, N*sizeof(uint8_t));
     if(error != cudaSuccess)
@@ -49,18 +35,6 @@ GPU::GPU(int width, int height, size_t nPhaseBuffers):
             throw std::runtime_error("Failed to allocate image buffer: " + std::string(cudaGetErrorString(error)));
         }
         buffers.push_back(buffer);
-    }
-
-    for(int i=0; i<nPhaseBuffers; i++)
-    {
-        uint8_t* cosineBuffer;
-        error = cudaMallocManaged(&cosineBuffer, N*sizeof(uint8_t)*3, cudaMemAttachHost);
-        // error = cudaMallocHost(&cosineBuffer, N*sizeof(uint8_t)*3);
-        if(error != cudaSuccess)
-        {
-            throw std::runtime_error("Failed to allocate phase buffer: " + std::string(cudaGetErrorString(error)));
-        }
-        cosineBuffers.push(cosineBuffer);
     }
 
     error = cudaStreamCreate(&stream1);
@@ -90,12 +64,6 @@ GPU::~GPU()
 {
     // cudaFree(cosineHostBuffer);
     cudaFree(imageBuffer);
-    while(buffers.size() > 0)
-    {
-        float* buffer = buffers.front();
-        cudaFree(buffer);
-        buffers.pop_front();
-    }
 
     cudaStreamDestroy(stream1);
     cudaStreamDestroy(stream2);
@@ -110,20 +78,19 @@ void GPU::getCudaVersion()
 
 }
 
-std::shared_ptr<GPU::Config> GPU::getConfig()
-{
-    return config;
-}
-
-std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::ImagePtr newImage)
+bool GPU::run(Spinnaker::ImagePtr image, 
+            std::shared_ptr<float> phaseMap, 
+            std::shared_ptr<uint8_t> phaseImage,
+            Algorithm algorithm, 
+            BufferMode bufferMode)
 {
     float* newImageDev = buffers.back();
 
-    cudaError_t error = cudaMemcpyAsync(imageBuffer, newImage->GetData(), N, cudaMemcpyHostToDevice, stream1);
+    cudaError_t error = cudaMemcpyAsync(imageBuffer, image->GetData(), N, cudaMemcpyHostToDevice, stream1);
     if(error != cudaSuccess)
     {
         std::cout << "Failed to copy image memory: " << cudaGetErrorString(error) << std::endl;
-        return {nullptr, nullptr};
+        return false;
     }
 
     buffers.pop_back();
@@ -134,54 +101,44 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
     if (eleCount < 4)
     {
         eleCount++;
-        return {nullptr, nullptr};
+        return false;
     }
     else
     {
-        if(config->bufferMode)
+        if(bufferMode == BufferMode::NEWSET)
         {
             eleCount = 0;
         }
     }
-
-    if(!cosineBuffers.pop(cosineBuffer))
-        return {nullptr, nullptr};
-    
-    if(!phaseBuffers.pop(phaseBuffer))
-    {
-        cosineBuffers.push(cosineBuffer);
-        cosineBuffer = nullptr;
-        return {nullptr, nullptr};
-    }
  
-    switch (config->algorithmIndex)
+    switch (algorithm)
     {
-    case 0:
+    case Algorithm::NOVAK:
         novak<<<blockPerGrid,threadPerBlock, 0, stream1>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
                                         buffers[4],
-                                        phaseBuffer,
-                                        cosineBuffer,
+                                        phaseMap.get(),
+                                        phaseImage.get(),
                                         N);
         break;
-    case 1:
+    case Algorithm::FOURPOINTS:
         four_point<<<blockPerGrid,threadPerBlock, 0, stream1>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
-                                        phaseBuffer,
-                                        cosineBuffer,
+                                        phaseMap.get(),
+                                        phaseImage.get(),
                                         N);
         break;
-    case 2:
+    case Algorithm::CARRE:
         carres<<<blockPerGrid,threadPerBlock, 0, stream1>>>(buffers[0],
                                         buffers[1],
                                         buffers[2],
                                         buffers[3],
-                                        phaseBuffer,
-                                        cosineBuffer,
+                                        phaseMap.get(),
+                                        phaseImage.get(),
                                         N);
     default:
         break;
@@ -191,29 +148,8 @@ std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> GPU::run(Spinnaker::
     if(error != cudaSuccess)
     {
         std::cout << "Failed to run phase algorithm: " << cudaGetErrorString(error) << std::endl;
-        return {nullptr, nullptr};
+        return false;
     }
 
-    std::shared_ptr<float> phaseMap(phaseBuffer, std::bind(&GPU::phaseBufferDeleter, this, std::placeholders::_1));
-    std::shared_ptr<uint8_t> phaseImage(cosineBuffer, std::bind(&GPU::cosineBufferDeleter, this, std::placeholders::_1));
-
-    return {phaseMap, phaseImage};
-}
-
-void GPU::cosineBufferDeleter(uint8_t* ptr)
-{
-    if(ptr != nullptr && !cosineBuffers.push(ptr))
-    {
-        cudaFree(ptr);
-    }
-    
-}
-
-void GPU::phaseBufferDeleter(float* ptr)
-{
-    if(ptr != nullptr && !phaseBuffers.push(ptr))
-    {
-        cudaFree(ptr);
-    }
-    
+    return true;
 }

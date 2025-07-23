@@ -23,6 +23,14 @@ using namespace GenApi;
                       << std::endl;            \
         }                                      \
     } while (0)
+
+static void cudaBufferDeleter(void* ptr)
+{
+    if(ptr != nullptr)
+    {
+        cudaFree(ptr);
+    }
+}
     
 WindowBase::WindowBase(size_t width, size_t height, const std::string& name)
 {
@@ -306,14 +314,38 @@ void StartupWindow::render()
     ImGui::End();
 }
 
-MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig):
+MainWindow::MainWindow(std::shared_ptr<FLIRCamera> cam):
     WindowBase(1200, 600, "PhaseVisualizer"),
-    gpuConfig_(gpuConfig),
     work(std::make_unique<boost::asio::io_service::work>(service)),
-    workThread([&]{service.run();})
+    workThread([&]{service.run();}),
+    phaseImageBufferPool(40),
+    phaseMapBufferPool(40)
 {
+    std::shared_ptr<FLIRCamera::Config> cameraConfig = cam->getConfig();
     width = cameraConfig->width->GetValue();
     height = cameraConfig->height->GetValue();
+    gpu = std::make_shared<GPU>(width, height);
+
+    for(int i=0; i<40; i++)
+    {
+        float* phaseMapBuffer;
+        cudaError_t error = cudaMalloc(&phaseMapBuffer, width*height*sizeof(float));
+        if(error != cudaSuccess)
+        {
+            std::cout << "Failed to allocate cuda memory: " << std::string(cudaGetErrorString(error)) << std::endl;
+        }
+        
+
+        uint8_t* phaseImageBuffer;
+        error = cudaMallocManaged(&phaseImageBuffer, width*height*sizeof(uint8_t)*3, cudaMemAttachHost);
+        if(error != cudaSuccess)
+        {
+            std::cout << "Failed to allocate phase buffer: " << std::string(cudaGetErrorString(error)) << std::endl;
+        }
+
+        phaseImageBufferPool.push(phaseImageBuffer);
+        phaseMapBufferPool.push(phaseMapBuffer);
+    }
 
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &frameTexture);
@@ -336,6 +368,54 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::sh
     {
         boost::filesystem::create_directories(folder);
     }
+
+    gpuThread = boost::thread([this, cam]()
+    {
+        cam->start();
+
+        try
+        {
+            while(1)
+            {
+                Spinnaker::ImagePtr image = cam->read(std::chrono::milliseconds(100));
+                // auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
+                if(image.IsValid())
+                {
+                    uint8_t* phaseImageBuffer;
+                    if(!phaseImageBufferPool.pop(phaseImageBuffer))
+                        continue;
+                    
+                    float* phaseMapBuffer;
+                    if(!phaseMapBufferPool.pop(phaseMapBuffer))
+                    {
+                        phaseImageBufferPool.push(phaseImageBuffer);
+                        continue;
+                    }
+
+                    auto phaseImage = std::shared_ptr<uint8_t>(phaseImageBuffer, [this](uint8_t* ptr){
+                        phaseImageBufferPool.push(ptr);
+                    });
+
+                    auto phaseMap = std::shared_ptr<float>(phaseMapBuffer, [this](float* ptr){
+                        phaseMapBufferPool.push(ptr);
+                    });
+
+                    if(gpu->run(image, phaseMap, phaseImage, algorithm, bufferMode))
+                        loadQueue.push({image, phaseImage, phaseMap});
+                    else
+                        loadQueue.push({image, nullptr, nullptr});
+                }
+
+                boost::this_thread::interruption_point();
+            }
+        }
+        catch(const boost::thread_interrupted& i)
+        {
+            std::cout << "Gpu thread exited!\n";
+        }
+
+        cam->stop();
+    });
 }
 
 MainWindow::~MainWindow()
@@ -343,6 +423,9 @@ MainWindow::~MainWindow()
     work.reset();
     service.stop();
     workThread.join();
+
+    gpuThread.interrupt();
+    gpuThread.join();
 }
 
 void MainWindow::updateImage(Spinnaker::ImagePtr image)
@@ -429,20 +512,18 @@ void MainWindow::render()
     ImGui::Text("%.1f", (1000.0 / duration));
 
     ImGui::Text("Algorithm"); ImGui::SameLine(childWidth/2);
-    int algorithmIndex = gpuConfig_->algorithmIndex;//static_cast<int>(algorithm.load());
-    if(ImGui::Combo("##AlgorithmDropdown", &algorithmIndex, gpuConfig_->algorithmNames, gpuConfig_->nAlgorithms))
+    int algorithmIndex = static_cast<int>(algorithm.load());
+    if(ImGui::Combo("##AlgorithmDropdown", &algorithmIndex, algorithmNames, IM_ARRAYSIZE(algorithmNames)))
     {
-        //algorithm = static_cast<GPU::PhaseAlgorithm>(selectedAlgorithm);
-        gpuConfig_->algorithmIndex = algorithmIndex;
+        algorithm = static_cast<GPU::Algorithm>(algorithmIndex);
         // std::cout << "Currently Selected Algorithm: " << selectedAlgorithm << std::endl;
     }
 
     ImGui::Text("Buffer Mode"); ImGui::SameLine(childWidth/2);
-    int bufferModeIndex = gpuConfig_->bufferMode;
-    const char* options[] = { "Sliding Window", "New Set" };
-    if(ImGui::Combo("##BufferModeDropdown", &bufferModeIndex, options, IM_ARRAYSIZE(options)))
+    int bufferModeIndex = static_cast<int>(bufferMode.load());
+    if(ImGui::Combo("##BufferModeDropdown", &bufferModeIndex, bufferModeNames, IM_ARRAYSIZE(bufferModeNames)))
     {
-        gpuConfig_->bufferMode = bufferModeIndex;
+        bufferMode = static_cast<GPU::BufferMode>(bufferModeIndex);
     }
 
     ImGui::Separator();
@@ -534,4 +615,24 @@ void MainWindow::render()
 
     ImGui::EndChild();
     ImGui::End();
+}
+
+int MainWindow::spin()
+{
+    while(ok())
+    {
+        std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
+
+        auto tupleOpt = loadQueue.tryPop(std::chrono::milliseconds(0));
+        if(tupleOpt)
+        {
+            const auto& [image, phaseImage, phaseMap] = tupleOpt.get();
+            updateImage(image);
+            updatePhase(phaseMap, phaseImage);
+        }
+
+        spinOnce();
+    }
+
+    return 0;
 }

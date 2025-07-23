@@ -15,7 +15,8 @@
 #include "FLIRCamera.h"
 #include "GPU.h"
 #include "ImGuiFileDialog.h"
-// #include "ImGuiFileDialogConfig.h"
+
+#include "dataqueue.h"
 
 class WindowBase
 {
@@ -121,12 +122,10 @@ class StartupWindow: public WindowBase
 class MainWindow: public WindowBase
 {
     public:
-    MainWindow(std::shared_ptr<FLIRCamera::Config> cameraConfig, std::shared_ptr<GPU::Config> gpuConfig);
+    MainWindow(std::shared_ptr<FLIRCamera> cam);
     ~MainWindow();
 
-    void updateImage(Spinnaker::ImagePtr image);
-    void updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage);
-    void render() final;
+    int spin();
 
     private:
     GLuint frameTexture;
@@ -142,7 +141,6 @@ class MainWindow: public WindowBase
     int width;
     int height;
     static int fileNameCallback(ImGuiInputTextCallbackData* data);
-    std::shared_ptr<GPU::Config> gpuConfig_;
 
     int saveCount = 0;
     bool savePhaseMap = false;
@@ -156,4 +154,21 @@ class MainWindow: public WindowBase
     std::string filenameBuffer = "data";
     boost::filesystem::path filename = filenameBuffer;
     bool invalidFilename = false;
+
+    DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> loadQueue;
+
+    boost::lockfree::queue<uint8_t*> phaseImageBufferPool;
+    boost::lockfree::queue<float*> phaseMapBufferPool;
+
+    std::shared_ptr<GPU> gpu;
+    boost::thread gpuThread;
+
+    const char* algorithmNames[3] = {"Novak", "FourPoints", "Carre"};
+    const char* bufferModeNames[2] = { "Sliding Window", "New Set" };
+    std::atomic<GPU::Algorithm> algorithm = GPU::Algorithm::CARRE;
+    std::atomic<GPU::BufferMode> bufferMode = GPU::BufferMode::NEWSET;
+
+    void updateImage(Spinnaker::ImagePtr image);
+    void updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage);
+    void render() final;
 };

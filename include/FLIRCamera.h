@@ -41,6 +41,7 @@ public:
   void stop();
   void close();
   ImagePtr read(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
+  std::shared_ptr<Config> getConfig() {return config;}
   
 
   // bool setFPS(double fps);
@@ -64,4 +65,5 @@ private:
   int mFPS;
 
   std::vector<void*> buffers;
+  std::shared_ptr<Config> config;
 };

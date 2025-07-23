@@ -69,7 +69,7 @@ std::cout << version.major << std::endl;
 
 std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
 {
-    std::shared_ptr<Config> config = std::make_shared<Config>();
+    config = std::make_shared<Config>();
     mCam = mCamList.GetByIndex(index);
 
     if(!mCam)
@@ -110,20 +110,6 @@ std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
     config->triggerMode = nodeMap.GetNode("TriggerMode");
     config->triggerSource = nodeMap.GetNode("TriggerSource");
 
-    // CEnumerationPtr exposureAuto = nodeMap.GetNode("ExposureAuto");
-    // if(IsAvailable(exposureAuto) && IsWritable(exposureAuto))
-    // {
-    //     CEnumEntryPtr exposureAutoOff =exposureAuto->GetEntryByName("Off");
-    //     exposureAuto->SetIntValue(exposureAutoOff->GetValue());
-    // }
-
-    // CFloatPtr exposureTime = nodeMap.GetNode("ExposureTime");
-    // if(IsAvailable(exposureTime) && IsWritable(exposureTime))
-    // {
-    //     exposureTime->SetValue(4);
-    //     std::cout << "Exposure time: " << exposureTime->GetValue() << std::endl; 
-    // }
-
     mCam -> TLStream.StreamBufferCountMode.SetValue(Spinnaker::StreamBufferCountModeEnum::StreamBufferCountMode_Auto);
     mCam -> TLStream.StreamBufferHandlingMode.SetValue(Spinnaker::StreamBufferHandlingModeEnum::StreamBufferHandlingMode_NewestOnly);
     // mCam -> SetBufferOwnership(Spinnaker::BufferOwnership::BUFFER_OWNERSHIP_USER);
@@ -134,6 +120,8 @@ std::shared_ptr<FLIRCamera::Config> FLIRCamera::open(size_t index)
 
 void FLIRCamera::close()
 {
+    config.reset();
+    
     if(mCam)
     mCam->DeInit();
 }

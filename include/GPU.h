@@ -15,20 +15,27 @@
 class GPU
 {
 public:
-
-    struct Config
+    enum class Algorithm
     {
-        int algorithmIndex = 2;
-        const char* algorithmNames[3] = {"Novak", "FourPoints", "Carre"};
-        int nAlgorithms = 3;
-        bool bufferMode = false;
+        NOVAK = 0,
+        FOURPOINTS = 1,
+        CARRE = 2
     };
 
-    GPU(int width, int height, size_t nPhaseBuffers);
+    enum class BufferMode
+    {
+        SLIDEWIN = 0,
+        NEWSET = 1
+    };
+
+    GPU(int width, int height);
     ~GPU();
-    std::shared_ptr<Config> getConfig();
     void getCudaVersion();
-    std::pair<std::shared_ptr<float>, std::shared_ptr<uint8_t>> run(Spinnaker::ImagePtr image);
+    bool run(Spinnaker::ImagePtr image, 
+            std::shared_ptr<float> phaseMap, 
+            std::shared_ptr<uint8_t> phaseImage,
+            Algorithm algorithm = Algorithm::CARRE,
+            BufferMode bufferMode = BufferMode::NEWSET);
 
 private:
 
@@ -42,16 +49,8 @@ private:
     cudaStream_t stream1;
     cudaStream_t stream2;
 
-    boost::lockfree::queue<uint8_t*> cosineBuffers;
-    boost::lockfree::queue<float*> phaseBuffers;
-
     uint8_t* cosineBuffer = nullptr;
     float* phaseBuffer = nullptr;
 
     std::deque<float*> buffers;
-
-    void phaseBufferDeleter(float* ptr);
-    void cosineBufferDeleter(uint8_t* ptr);
-    std::shared_ptr<Config> config;
-
 };
