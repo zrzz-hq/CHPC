@@ -426,6 +426,20 @@ MainWindow::~MainWindow()
 
     gpuThread.interrupt();
     gpuThread.join();
+
+    while(!phaseMapBufferPool.empty())
+    {
+        float* phaseMapBuffer;
+        phaseMapBufferPool.pop(phaseMapBuffer);
+        cudaFree(phaseMapBuffer);
+    }
+
+    while(!phaseImageBufferPool.empty())
+    {
+        uint8_t* phaseImageBuffer;
+        phaseImageBufferPool.pop(phaseImageBuffer);
+        cudaFree(phaseImageBuffer);
+    }
 }
 
 void MainWindow::updateImage(Spinnaker::ImagePtr image)
