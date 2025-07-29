@@ -364,10 +364,6 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera> cam):
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     folder = (boost::filesystem::absolute(".").parent_path() / "images").string();
-    if(!boost::filesystem::exists(folder))
-    {
-        boost::filesystem::create_directories(folder);
-    }
 
     gpuThread = boost::thread([this, cam]()
     {
@@ -450,6 +446,11 @@ void MainWindow::updateImage(Spinnaker::ImagePtr image)
 
 void MainWindow::saveImage(Spinnaker::ImagePtr image)
 {
+    if(!boost::filesystem::exists(folder))
+    {
+        boost::filesystem::create_directories(folder);
+    }
+
     boost::filesystem::path path = folder/ (filename.string() + 
     std::to_string(nSavedImage));
     path.replace_extension("png");
@@ -469,6 +470,11 @@ void MainWindow::updatePhaseImage(std::shared_ptr<uint8_t> phaseImage)
 
 void MainWindow::savePhaseMap(std::shared_ptr<float> phaseMap)
 {
+    if(!boost::filesystem::exists(folder))
+    {
+        boost::filesystem::create_directories(folder);
+    }
+    
     boost::filesystem::path path = folder / (filename.string() + 
     std::to_string(nSavedPhaseMap));
     path.replace_extension("npy");
