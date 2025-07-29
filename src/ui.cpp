@@ -444,57 +444,41 @@ MainWindow::~MainWindow()
 
 void MainWindow::updateImage(Spinnaker::ImagePtr image)
 {
-    if(image.IsValid())
-    {
-        glBindTexture(GL_TEXTURE_2D, frameTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, image->GetData());
-
-        if(nImageToSave)
-        {
-            service.post([this, image]{
-                boost::filesystem::path path = folder/ (filename.string() + 
-                std::to_string(nSavedImage));
-                path.replace_extension("png");
-                cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
-                cv::imwrite(path.string(), imageMat);
-                nSavedImage ++;
-            }); 
-
-            nImageToSave --;  
-        }
-    }
+    glBindTexture(GL_TEXTURE_2D, frameTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, image->GetData());
 }
 
-void MainWindow::updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage)
+void MainWindow::saveImage(Spinnaker::ImagePtr image)
 {
-    if(phaseImage != nullptr)
-    {
-        glBindTexture(GL_TEXTURE_2D, phaseTexture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, phaseImage.get());
-        
-        now = std::chrono::system_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-        last = now;
-    }
+    boost::filesystem::path path = folder/ (filename.string() + 
+    std::to_string(nSavedImage));
+    path.replace_extension("png");
+    cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
+    cv::imwrite(path.string(), imageMat);
+}
 
-    if(nPhaseMapToSave > 0 && phaseMap)
-    {
-        service.post([this, phaseMap]{
-            boost::filesystem::path path = folder / (filename.string() + 
-            std::to_string(nSavedPhaseMap));
-            path.replace_extension("npy");
-            std::vector<float> phaseMat(width*height, 0);
-            cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
-            cnpy::npy_save(
-                path.string(), 
-                phaseMat.data(),
-                {static_cast<size_t>(height), static_cast<size_t>(width)}
-            );
-            nSavedPhaseMap ++;
-        });
+void MainWindow::updatePhaseImage(std::shared_ptr<uint8_t> phaseImage)
+{
+    glBindTexture(GL_TEXTURE_2D, phaseTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, phaseImage.get());
+    
+    now = std::chrono::system_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+    last = now;
+}
 
-        nPhaseMapToSave --;
-    }
+void MainWindow::savePhaseMap(std::shared_ptr<float> phaseMap)
+{
+    boost::filesystem::path path = folder / (filename.string() + 
+    std::to_string(nSavedPhaseMap));
+    path.replace_extension("npy");
+    std::vector<float> phaseMat(width*height, 0);
+    cudaMemcpy(phaseMat.data(), phaseMap.get(), width * height * sizeof(float), cudaMemcpyDeviceToHost);
+    cnpy::npy_save(
+        path.string(), 
+        phaseMat.data(),
+        {static_cast<size_t>(height), static_cast<size_t>(width)}
+    );
 }
 
 int MainWindow::fileNameCallback(ImGuiInputTextCallbackData* data)
@@ -587,20 +571,20 @@ void MainWindow::render()
             invalidFilename = false;
     }
 
-    ImGui::Checkbox("Save Image", &saveImage); 
+    ImGui::Checkbox("Save Image", &ifSaveImage); 
     ImGui::SameLine();
-    ImGui::Checkbox("Save PhaseMap", &savePhaseMap); 
+    ImGui::Checkbox("Save PhaseMap", &ifSavePhaseMap); 
 
     if(nPhaseMapToSave == 0 && nImageToSave == 0 && !invalidFilename)
     {
         if (ImGui::Button("Save")) 
         {
             //Save Phase Map flag
-            if(savePhaseMap)
+            if(ifSavePhaseMap)
             {
                 nPhaseMapToSave = saveCount;
             }
-            if(saveImage)
+            if(ifSaveImage)
             {
                 nImageToSave = saveCount;
             }
@@ -642,7 +626,29 @@ int MainWindow::spin()
         {
             const auto& [image, phaseImage, phaseMap] = tupleOpt.get();
             updateImage(image);
-            updatePhase(phaseMap, phaseImage);
+
+            if(phaseImage != nullptr && phaseMap != nullptr)
+            {
+                updatePhaseImage(phaseImage);
+            
+                if(nImageToSave)
+                {
+                    service.post([this, image]{
+                        saveImage(image);
+                        nSavedImage ++;
+                    }); 
+                    nImageToSave --;  
+                }
+
+                if(nPhaseMapToSave > 0 && phaseMap)
+                {
+                    service.post([this, phaseMap]{
+                        savePhaseMap(phaseMap);
+                        nSavedPhaseMap ++;
+                    });
+                    nPhaseMapToSave --;
+                }
+            }
         }
 
         spinOnce();

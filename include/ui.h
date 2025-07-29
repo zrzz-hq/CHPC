@@ -143,8 +143,8 @@ class MainWindow: public WindowBase
     static int fileNameCallback(ImGuiInputTextCallbackData* data);
 
     int saveCount = 0;
-    bool savePhaseMap = false;
-    bool saveImage = false;
+    bool ifSavePhaseMap = false;
+    bool ifSaveImage = false;
     int nPhaseMapToSave = 0;
     int nImageToSave = 0;
     std::atomic<int> nSavedPhaseMap = 0;
@@ -170,6 +170,8 @@ class MainWindow: public WindowBase
     std::atomic<GPU::BufferMode> bufferMode = GPU::BufferMode::NEWSET;
 
     void updateImage(Spinnaker::ImagePtr image);
-    void updatePhase(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage);
+    void saveImage(Spinnaker::ImagePtr image);
+    void updatePhaseImage(std::shared_ptr<uint8_t> phaseImage);
+    void savePhaseMap(std::shared_ptr<float> phaseMap);
     void render() final;
 };
