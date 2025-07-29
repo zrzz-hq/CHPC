@@ -314,39 +314,15 @@ void StartupWindow::render()
     ImGui::End();
 }
 
-MainWindow::MainWindow(std::shared_ptr<FLIRCamera> cam):
+MainWindow::MainWindow(size_t width, size_t height):
     WindowBase(1200, 600, "PhaseVisualizer"),
     work(std::make_unique<boost::asio::io_service::work>(service)),
     workThread([&]{service.run();}),
-    phaseImageBufferPool(nbuffers),
-    phaseMapBufferPool(nbuffers)
+    width(width),
+    height(height),
+    cudaBufferManager(width, height),
+    gpu(width, height)
 {
-    std::shared_ptr<FLIRCamera::Config> cameraConfig = cam->getConfig();
-    width = cameraConfig->width->GetValue();
-    height = cameraConfig->height->GetValue();
-    gpu = std::make_shared<GPU>(width, height);
-
-    for(int i=0; i<nbuffers; i++)
-    {
-        float* phaseMapBuffer;
-        cudaError_t error = cudaMalloc(&phaseMapBuffer, width*height*sizeof(float));
-        if(error != cudaSuccess)
-        {
-            std::cout << "Failed to allocate cuda memory: " << std::string(cudaGetErrorString(error)) << std::endl;
-        }
-        
-
-        uint8_t* phaseImageBuffer;
-        error = cudaMallocManaged(&phaseImageBuffer, width*height*sizeof(uint8_t)*3, cudaMemAttachHost);
-        if(error != cudaSuccess)
-        {
-            std::cout << "Failed to allocate phase buffer: " << std::string(cudaGetErrorString(error)) << std::endl;
-        }
-
-        phaseImageBufferPool.push(phaseImageBuffer);
-        phaseMapBufferPool.push(phaseMapBuffer);
-    }
-
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &frameTexture);
     glBindTexture(GL_TEXTURE_2D, frameTexture);
@@ -364,54 +340,6 @@ MainWindow::MainWindow(std::shared_ptr<FLIRCamera> cam):
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     folder = (boost::filesystem::absolute(".").parent_path() / "images").string();
-
-    gpuThread = boost::thread([this, cam]()
-    {
-        cam->start();
-
-        try
-        {
-            while(1)
-            {
-                Spinnaker::ImagePtr image = cam->read(std::chrono::milliseconds(100));
-                // auto imageOpt = queue1.tryPop(std::chrono::milliseconds(100));
-                if(image.IsValid())
-                {
-                    uint8_t* phaseImageBuffer;
-                    if(!phaseImageBufferPool.pop(phaseImageBuffer))
-                        continue;
-                    
-                    float* phaseMapBuffer;
-                    if(!phaseMapBufferPool.pop(phaseMapBuffer))
-                    {
-                        phaseImageBufferPool.push(phaseImageBuffer);
-                        continue;
-                    }
-
-                    auto phaseImage = std::shared_ptr<uint8_t>(phaseImageBuffer, [this](uint8_t* ptr){
-                        phaseImageBufferPool.push(ptr);
-                    });
-
-                    auto phaseMap = std::shared_ptr<float>(phaseMapBuffer, [this](float* ptr){
-                        phaseMapBufferPool.push(ptr);
-                    });
-
-                    if(gpu->run(image, phaseMap, phaseImage, algorithm, bufferMode))
-                        loadQueue.push({image, phaseImage, phaseMap});
-                    else
-                        loadQueue.push({image, nullptr, nullptr});
-                }
-
-                boost::this_thread::interruption_point();
-            }
-        }
-        catch(const boost::thread_interrupted& i)
-        {
-            std::cout << "Gpu thread exited!\n";
-        }
-
-        cam->stop();
-    });
 }
 
 MainWindow::~MainWindow()
@@ -419,23 +347,6 @@ MainWindow::~MainWindow()
     work.reset();
     service.stop();
     workThread.join();
-
-    gpuThread.interrupt();
-    gpuThread.join();
-
-    while(!phaseMapBufferPool.empty())
-    {
-        float* phaseMapBuffer;
-        phaseMapBufferPool.pop(phaseMapBuffer);
-        cudaFree(phaseMapBuffer);
-    }
-
-    while(!phaseImageBufferPool.empty())
-    {
-        uint8_t* phaseImageBuffer;
-        phaseImageBufferPool.pop(phaseImageBuffer);
-        cudaFree(phaseImageBuffer);
-    }
 }
 
 void MainWindow::updateImage(Spinnaker::ImagePtr image)
@@ -474,7 +385,7 @@ void MainWindow::savePhaseMap(std::shared_ptr<float> phaseMap)
     {
         boost::filesystem::create_directories(folder);
     }
-    
+
     boost::filesystem::path path = folder / (filename.string() + 
     std::to_string(nSavedPhaseMap));
     path.replace_extension("npy");
@@ -621,13 +532,27 @@ void MainWindow::render()
     ImGui::End();
 }
 
+void MainWindow::processImage(Spinnaker::ImagePtr image)
+{
+    if(image.IsValid())
+    {
+        auto phaseImage = cudaBufferManager.allocPhaseImage();
+        auto phaseMap = cudaBufferManager.allocPhaseMap();
+
+        if(gpu.run(image, phaseMap, phaseImage, algorithm, bufferMode))
+            dataQueue.push({image, phaseImage, phaseMap});
+        else
+            dataQueue.push({image, nullptr, nullptr});
+    }
+}
+
 int MainWindow::spin()
 {
     while(ok())
     {
         std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>> tuple;
 
-        auto tupleOpt = loadQueue.tryPop(std::chrono::milliseconds(0));
+        auto tupleOpt = dataQueue.tryPop(std::chrono::milliseconds(0));
         if(tupleOpt)
         {
             const auto& [image, phaseImage, phaseMap] = tupleOpt.get();

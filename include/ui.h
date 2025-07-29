@@ -122,10 +122,11 @@ class StartupWindow: public WindowBase
 class MainWindow: public WindowBase
 {
     public:
-    MainWindow(std::shared_ptr<FLIRCamera> cam);
+    MainWindow(size_t width, size_t height);
     ~MainWindow();
 
     int spin();
+    void processImage(Spinnaker::ImagePtr image);
 
     private:
     GLuint frameTexture;
@@ -142,6 +143,12 @@ class MainWindow: public WindowBase
     int height;
     static int fileNameCallback(ImGuiInputTextCallbackData* data);
 
+    CudaBufferManager cudaBufferManager;
+    DataQueue<std::tuple<Spinnaker::ImagePtr, 
+                std::shared_ptr<uint8_t>, 
+                std::shared_ptr<float>>> dataQueue;
+    GPU gpu;
+
     int saveCount = 0;
     bool ifSavePhaseMap = false;
     bool ifSaveImage = false;
@@ -154,15 +161,6 @@ class MainWindow: public WindowBase
     std::string filenameBuffer = "data";
     boost::filesystem::path filename = filenameBuffer;
     bool invalidFilename = false;
-
-    DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<uint8_t>, std::shared_ptr<float>>> loadQueue;
-
-    const int nbuffers = 40;
-    boost::lockfree::queue<uint8_t*> phaseImageBufferPool;
-    boost::lockfree::queue<float*> phaseMapBufferPool;
-
-    std::shared_ptr<GPU> gpu;
-    boost::thread gpuThread;
 
     const char* algorithmNames[3] = {"Novak", "FourPoints", "Carre"};
     const char* bufferModeNames[2] = { "Sliding Window", "New Set" };
