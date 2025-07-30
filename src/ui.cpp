@@ -536,13 +536,21 @@ void MainWindow::processImage(Spinnaker::ImagePtr image)
 {
     if(image.IsValid())
     {
-        auto phaseImage = cudaBufferManager.allocPhaseImage();
-        auto phaseMap = cudaBufferManager.allocPhaseMap();
+        std::shared_ptr<uint8_t> phaseImage;
+        std::shared_ptr<float> phaseMap = cudaBufferManager.allocPhaseMap();
 
-        if(gpu.run(image, phaseMap, phaseImage, algorithm, bufferMode))
-            dataQueue.push({image, phaseImage, phaseMap});
+        if(gpu.calcPhaseMap(image, phaseMap, algorithm, bufferMode))
+        {
+            phaseImage = cudaBufferManager.allocPhaseImage();
+            if(!gpu.calcPhaseImage(phaseMap, phaseImage))
+                phaseImage.reset();
+        }
         else
-            dataQueue.push({image, nullptr, nullptr});
+        {
+            phaseMap.reset();
+        }
+
+        dataQueue.push({image, phaseImage, phaseMap});
     }
 }
 

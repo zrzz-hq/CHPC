@@ -73,9 +73,8 @@ void GPU::getCudaVersion()
 
 }
 
-bool GPU::run(Spinnaker::ImagePtr image, 
+bool GPU::calcPhaseMap(Spinnaker::ImagePtr image, 
             std::shared_ptr<float> phaseMap, 
-            std::shared_ptr<uint8_t> phaseImage,
             Algorithm algorithm, 
             BufferMode bufferMode)
 {
@@ -136,12 +135,24 @@ bool GPU::run(Spinnaker::ImagePtr image,
         break;
     }
 
-    create_phaseImage<<<blockPerGrid,threadPerBlock, 0, stream1>>>(phaseMap.get(), phaseImage.get(), N);
-
     error = cudaStreamSynchronize(stream1);
     if(error != cudaSuccess)
     {
         std::cout << "Failed to run phase algorithm: " << cudaGetErrorString(error) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool GPU::calcPhaseImage(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage)
+{
+    create_phaseImage<<<blockPerGrid,threadPerBlock, 0, stream1>>>(phaseMap.get(), phaseImage.get(), N);
+    
+    cudaError_t error = cudaStreamSynchronize(stream1);
+    if(error != cudaSuccess)
+    {
+        std::cout << "Failed to generate phase image: " << cudaGetErrorString(error) << std::endl;
         return false;
     }
 
