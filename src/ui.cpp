@@ -23,14 +23,6 @@ using namespace GenApi;
                       << std::endl;            \
         }                                      \
     } while (0)
-
-static void cudaBufferDeleter(void* ptr)
-{
-    if(ptr != nullptr)
-    {
-        cudaFree(ptr);
-    }
-}
     
 WindowBase::WindowBase(size_t width, size_t height, const std::string& name)
 {
@@ -337,7 +329,15 @@ MainWindow::MainWindow(size_t width, size_t height):
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    cudaGraphicsGLRegisterImage(&phaseImageRes, phaseTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
+    cudaGraphicsMapResources(1, &phaseImageRes);
+    cudaGraphicsSubResourceGetMappedArray(&phaseImageArray, phaseImageRes, 0, 0);
+    cudaResourceDesc resDesc;
+    resDesc.resType = cudaResourceTypeArray;
+    resDesc.res.array.array = phaseImageArray;
+    cudaCreateSurfaceObject(&phaseImageSurface, &resDesc);
 
     folder = (boost::filesystem::absolute(".").parent_path() / "images").string();
 }
@@ -347,6 +347,10 @@ MainWindow::~MainWindow()
     work.reset();
     service.stop();
     workThread.join();
+
+    cudaDestroySurfaceObject(phaseImageSurface);
+    cudaGraphicsUnmapResources(1, &phaseImageRes);
+    cudaGraphicsUnregisterResource(phaseImageRes);
 }
 
 void MainWindow::updateImage(Spinnaker::ImagePtr image)
@@ -367,16 +371,6 @@ void MainWindow::saveImage(Spinnaker::ImagePtr image)
     path.replace_extension("png");
     cv::Mat imageMat(height, width, CV_8UC1, image->GetData());
     cv::imwrite(path.string(), imageMat);
-}
-
-void MainWindow::updatePhaseImage(std::shared_ptr<uint8_t> phaseImage)
-{
-    glBindTexture(GL_TEXTURE_2D, phaseTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, phaseImage.get());
-    
-    now = std::chrono::system_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-    last = now;
 }
 
 void MainWindow::savePhaseMap(std::shared_ptr<float> phaseMap)
@@ -536,21 +530,14 @@ void MainWindow::processImage(Spinnaker::ImagePtr image)
 {
     if(image.IsValid())
     {
-        std::shared_ptr<uint8_t> phaseImage;
         std::shared_ptr<float> phaseMap = cudaBufferManager.allocPhaseMap();
 
-        if(gpu.calcPhaseMap(image, phaseMap, algorithm, bufferMode))
-        {
-            phaseImage = cudaBufferManager.allocPhaseImage();
-            if(!gpu.calcPhaseImage(phaseMap, phaseImage))
-                phaseImage.reset();
-        }
-        else
+        if(!gpu.calcPhaseMap(image, phaseMap, algorithm, bufferMode))
         {
             phaseMap.reset();
         }
 
-        dataQueue.push({image, phaseImage, phaseMap});
+        dataQueue.push({image, phaseMap});
     }
 }
 
@@ -563,12 +550,12 @@ int MainWindow::spin()
         auto tupleOpt = dataQueue.tryPop(std::chrono::milliseconds(0));
         if(tupleOpt)
         {
-            const auto& [image, phaseImage, phaseMap] = tupleOpt.get();
+            const auto& [image, phaseMap] = tupleOpt.get();
             updateImage(image);
 
-            if(phaseImage != nullptr && phaseMap != nullptr)
+            if(phaseMap != nullptr)
             {
-                updatePhaseImage(phaseImage);
+                gpu.calcPhaseImage(phaseMap, phaseImageSurface);
             
                 if(nImageToSave)
                 {
@@ -588,6 +575,10 @@ int MainWindow::spin()
                     nPhaseMapToSave --;
                 }
             }
+
+            now = std::chrono::system_clock::now();
+            duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+            last = now;
         }
 
         spinOnce();

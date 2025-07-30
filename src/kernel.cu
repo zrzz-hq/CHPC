@@ -50,18 +50,24 @@ __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase,
     }
 }
 
-__global__ void create_phaseImage(float* phaseMap, uint8_t* phaseImage, int N) 
+__global__ void create_phaseImage(float* phaseMap, cudaSurfaceObject_t phaseImage, int N, int width) 
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < N) 
     {
+        int x = idx % width;
+        int y = idx / width;
         float norm = fminf(fmaxf((phaseMap[idx] + M_PI) / (2.0 * M_PI), 0.0f), 1.0f);
 
         float r = fminf(fmaxf(1.5f - fabsf(4.0f * norm - 3.0f), 0.0f), 1.0f);
         float g = fminf(fmaxf(1.5f - fabsf(4.0f * norm - 2.0f), 0.0f), 1.0f);
         float b = fminf(fmaxf(1.5f - fabsf(4.0f * norm - 1.0f), 0.0f), 1.0f); 
-        phaseImage[idx * 3] = __float2uint_rn(r * 255.0f);
-        phaseImage[idx * 3 + 1] = __float2uint_rn(g * 255.0f);
-        phaseImage[idx * 3 + 2] = __float2uint_rn(b * 255.0f);
+
+        uchar4 pixel;
+        pixel.x = __float2uint_rn(r * 255.0f);
+        pixel.y = __float2uint_rn(g * 255.0f);
+        pixel.z = __float2uint_rn(b * 255.0f);
+        pixel.w = 255;
+        surf2Dwrite(pixel, phaseImage, x * sizeof(uchar4), y);
     }
 }

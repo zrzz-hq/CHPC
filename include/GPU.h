@@ -30,7 +30,7 @@ class CudaBufferManager
             
 
             uint8_t* phaseImageBuffer;
-            error = cudaMallocManaged(&phaseImageBuffer, width*height*sizeof(uint8_t)*3, cudaMemAttachHost);
+            error = cudaMallocManaged(&phaseImageBuffer, width*height*sizeof(uint8_t)*4, cudaMemAttachHost);
             if(error != cudaSuccess)
             {
                 std::cout << "Failed to allocate phase buffer: " << std::string(cudaGetErrorString(error)) << std::endl;
@@ -108,9 +108,9 @@ public:
                         std::shared_ptr<float> phaseMap, 
                         Algorithm algorithm = Algorithm::CARRE,
                         BufferMode bufferMode = BufferMode::NEWSET);
-    
+
     bool calcPhaseImage(std::shared_ptr<float> phaseMap, 
-                        std::shared_ptr<uint8_t> phaseImage);
+                        cudaSurfaceObject_t phaseImage);
 
 private:
 
@@ -118,11 +118,11 @@ private:
     int blockPerGrid;
     int threadPerBlock;
     int N;
+    int width;
 
     uint8_t* imageBuffer;
 
     cudaStream_t stream1;
-    cudaStream_t stream2;
 
     uint8_t* cosineBuffer = nullptr;
     float* phaseBuffer = nullptr;

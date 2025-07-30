@@ -12,6 +12,9 @@
 #include <chrono>
 #include <unordered_map>
 
+#include "cuda_runtime.h"
+#include "cuda_gl_interop.h"
+
 #include "FLIRCamera.h"
 #include "GPU.h"
 #include "ImGuiFileDialog.h"
@@ -132,6 +135,10 @@ class MainWindow: public WindowBase
     GLuint frameTexture;
     GLuint phaseTexture;
 
+    cudaGraphicsResource_t phaseImageRes;
+    cudaArray_t phaseImageArray;
+    cudaSurfaceObject_t phaseImageSurface;
+
     boost::asio::io_service service;
     std::unique_ptr<boost::asio::io_service::work> work;
     std::thread workThread;
@@ -144,9 +151,7 @@ class MainWindow: public WindowBase
     static int fileNameCallback(ImGuiInputTextCallbackData* data);
 
     CudaBufferManager cudaBufferManager;
-    DataQueue<std::tuple<Spinnaker::ImagePtr, 
-                std::shared_ptr<uint8_t>, 
-                std::shared_ptr<float>>> dataQueue;
+    DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<float>>> dataQueue;
     GPU gpu;
 
     int saveCount = 0;
@@ -169,7 +174,6 @@ class MainWindow: public WindowBase
 
     void updateImage(Spinnaker::ImagePtr image);
     void saveImage(Spinnaker::ImagePtr image);
-    void updatePhaseImage(std::shared_ptr<uint8_t> phaseImage);
     void savePhaseMap(std::shared_ptr<float> phaseMap);
     void render() final;
 };

@@ -4,9 +4,9 @@ __global__ void convert_type(uint8_t *inp, float *outp, int N);
 __global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, int N);
 __global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
 __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
-__global__ void create_phaseImage(float* phaseMap, uint8_t* phaseImage, int N);
+__global__ void create_phaseImage(float* phaseMap, cudaSurfaceObject_t phaseImage, int N, int width);
 
-GPU::GPU(int width, int height)
+GPU::GPU(int width, int height):width(width)
 {
     eleCount = 0;
     N = width * height;
@@ -37,12 +37,6 @@ GPU::GPU(int width, int height)
     {
         throw std::runtime_error("Failed to create cuda stream 1: "+ std::string(cudaGetErrorString(error)));
     }
-    
-    error = cudaStreamCreate(&stream2);
-    if(error != cudaSuccess)
-    {
-        throw std::runtime_error("Failed to create cuda stream 2: "+ std::string(cudaGetErrorString(error)));
-    }
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -61,7 +55,6 @@ GPU::~GPU()
     cudaFree(imageBuffer);
 
     cudaStreamDestroy(stream1);
-    cudaStreamDestroy(stream2);
 };
 
 void GPU::getCudaVersion()
@@ -145,9 +138,9 @@ bool GPU::calcPhaseMap(Spinnaker::ImagePtr image,
     return true;
 }
 
-bool GPU::calcPhaseImage(std::shared_ptr<float> phaseMap, std::shared_ptr<uint8_t> phaseImage)
+bool GPU::calcPhaseImage(std::shared_ptr<float> phaseMap, cudaSurfaceObject_t phaseImage)
 {
-    create_phaseImage<<<blockPerGrid,threadPerBlock, 0, stream1>>>(phaseMap.get(), phaseImage.get(), N);
+    create_phaseImage<<<blockPerGrid,threadPerBlock, 0, stream1>>>(phaseMap.get(), phaseImage, N, width);
     
     cudaError_t error = cudaStreamSynchronize(stream1);
     if(error != cudaSuccess)
