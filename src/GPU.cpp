@@ -1,15 +1,10 @@
 #include "GPU.h"
 
-#ifdef _cplusplus
-extern "C" {
-#endif
-    __global__ void convert_type(uint8_t *inp, float *outp, int N);
-    __global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, uint8_t* cosine, int N);
-    __global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
-    __global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, uint8_t* cosine, int N);
-#ifdef _cplusplus
-}
-#endif
+__global__ void convert_type(uint8_t *inp, float *outp, int N);
+__global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, int N);
+__global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
+__global__ void carres(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
+__global__ void create_phaseImage(float* phaseMap, uint8_t* phaseImage, int N);
 
 GPU::GPU(int width, int height)
 {
@@ -120,7 +115,6 @@ bool GPU::run(Spinnaker::ImagePtr image,
                                         buffers[3],
                                         buffers[4],
                                         phaseMap.get(),
-                                        phaseImage.get(),
                                         N);
         break;
     case Algorithm::FOURPOINTS:
@@ -129,7 +123,6 @@ bool GPU::run(Spinnaker::ImagePtr image,
                                         buffers[2],
                                         buffers[3],
                                         phaseMap.get(),
-                                        phaseImage.get(),
                                         N);
         break;
     case Algorithm::CARRE:
@@ -138,11 +131,12 @@ bool GPU::run(Spinnaker::ImagePtr image,
                                         buffers[2],
                                         buffers[3],
                                         phaseMap.get(),
-                                        phaseImage.get(),
                                         N);
     default:
         break;
     }
+
+    create_phaseImage<<<blockPerGrid,threadPerBlock, 0, stream1>>>(phaseMap.get(), phaseImage.get(), N);
 
     error = cudaStreamSynchronize(stream1);
     if(error != cudaSuccess)
