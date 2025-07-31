@@ -313,7 +313,7 @@ MainWindow::MainWindow(size_t width, size_t height):
     workThread([&]{service.run();}),
     width(width),
     height(height),
-    cudaBufferManager(width, height),
+    phaseMapPool(std::make_shared<CudaBufferPool<float>>(width, height)),
     gpu(width, height)
 {
     glEnable(GL_TEXTURE_2D);
@@ -531,7 +531,7 @@ void MainWindow::processImage(Spinnaker::ImagePtr image)
 {
     if(image.IsValid())
     {
-        std::shared_ptr<float> phaseMap = cudaBufferManager.allocPhaseMap();
+        std::shared_ptr<float> phaseMap = phaseMapPool->alloc();
 
         if(!gpu.calcPhaseMap(image, phaseMap, algorithm, bufferMode))
         {

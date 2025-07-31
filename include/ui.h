@@ -150,7 +150,7 @@ class MainWindow: public WindowBase
     int height;
     static int fileNameCallback(ImGuiInputTextCallbackData* data);
 
-    CudaBufferManager cudaBufferManager;
+    std::shared_ptr<CudaBufferPool<float>> phaseMapPool;
     DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<float>>> dataQueue;
     GPU gpu;
 

@@ -12,47 +12,48 @@
 
 #include <boost/lockfree/queue.hpp>
 
-class CudaBufferManager
+template<typename T>
+class CudaBufferPool: public std::enable_shared_from_this<CudaBufferPool<T>>
 {
     public:
-    CudaBufferManager(size_t width, size_t height, size_t nbuffers = 40):
-        phaseMapBufferPool(nbuffers)
+    CudaBufferPool(size_t width, size_t height, size_t nbuffers = 40):
+        pool(nbuffers)
     {
         for(int i=0; i<nbuffers; i++)
         {
-            float* phaseMapBuffer;
-            cudaError_t error = cudaMalloc(&phaseMapBuffer, width*height*sizeof(float));
+            T* buffer;
+            cudaError_t error = cudaMalloc(&buffer, width*height*sizeof(T));
             if(error != cudaSuccess)
             {
                 std::cout << "Failed to allocate cuda memory: " << std::string(cudaGetErrorString(error)) << std::endl;
             }
-            phaseMapBufferPool.push(phaseMapBuffer);
+            pool.push(buffer);
         }
     }
 
-    ~CudaBufferManager()
+    ~CudaBufferPool()
     {
-        while(!phaseMapBufferPool.empty())
+        while(!pool.empty())
         {
-            float* phaseMapBuffer;
-            phaseMapBufferPool.pop(phaseMapBuffer);
-            cudaFree(phaseMapBuffer);
+            float* buffer;
+            pool.pop(buffer);
+            cudaFree(buffer);
         }
     }
 
-    std::shared_ptr<float> allocPhaseMap()
+    std::shared_ptr<T> alloc()
     {
-        float* phaseMapBuffer;
-        if(!phaseMapBufferPool.pop(phaseMapBuffer))
+        T* buffer;
+        if(!pool.pop(buffer))
             return nullptr;
         
-        return std::shared_ptr<float>(phaseMapBuffer, [this](float* ptr){
-            phaseMapBufferPool.push(ptr);
+        return std::shared_ptr<T>(buffer, [self = this->shared_from_this()](float* ptr){
+            self->pool.push(ptr);
         });
     }
 
     private:
-    boost::lockfree::queue<float*> phaseMapBufferPool;
+    boost::lockfree::queue<T*> pool;
 };
 
 class GPU
