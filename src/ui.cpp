@@ -43,6 +43,7 @@ WindowBase::WindowBase(size_t width, size_t height, const std::string& name)
     // Setup platform/renderer bindings
     frame = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
     glfwMakeContextCurrent(frame);
+    ImGui::CreateContext();
     ImGui_ImplGlfw_InitForOpenGL(frame, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 }
