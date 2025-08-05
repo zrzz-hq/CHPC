@@ -1,11 +1,9 @@
 #pragma once
 
 #include "Spinnaker.h"
-#include <iostream>
+#include <string>
 #include <vector>
-#include <opencv4/opencv2/opencv.hpp>
-#include <opencv4/opencv2/core.hpp>
-#include <algorithm>
+#include <chrono>
 
 using namespace Spinnaker;
 
@@ -32,9 +30,7 @@ public:
     GenApi::CEnumerationPtr pixelFormat;
   };
 
-  void getVersion();
-
-  std::shared_ptr<Config> open(size_t index);
+  std::shared_ptr<Config> open(const std::string& Id);
 
   std::vector<std::string> enumCamera();
   bool start();
@@ -43,14 +39,6 @@ public:
   ImagePtr read(std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
   std::shared_ptr<Config> getConfig() {return config;}
   
-
-  // bool setFPS(double fps);
-  // bool setResolution(int width, int height);
-  // bool setExposureTime(int timeNS);
-  // bool enableTrigger(Spinnaker::TriggerSourceEnums line);
-  // void disableTrigger();
-  // bool FLIRCamera::setPixelFormat(const std::string& format);
-
   FLIRCamera();
   ~FLIRCamera();
 

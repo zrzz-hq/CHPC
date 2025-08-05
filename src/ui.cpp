@@ -8,6 +8,9 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 
+#include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/core.hpp>
+
 #include "cnpy.h"
 
 using namespace Spinnaker;
@@ -125,11 +128,8 @@ ErrorWindow::~ErrorWindow()
 void ErrorWindow::render(){
     ImGui::Begin("Error", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
     ImGui::SetWindowFontScale(1.5f); 
-    //ImVec2 windowSize = ImGui::GetWindowSize();
     const char* message = "No Camera Detected!";
-    //float widgetWidth = ImGui::CalcTextSize(message).x;
     
-    //ImGui::SetCursorPosX((windowSize.x - widgetWidth) * 0.5f);
     ImGui::Text("%s", message);
     ImGui::Dummy(ImVec2(0.0f, 20.0f));
     if (ImGui::Button("Close Window"))
@@ -332,13 +332,24 @@ MainWindow::MainWindow(size_t width, size_t height):
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-    cudaGraphicsGLRegisterImage(&phaseImageRes, phaseTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
-    cudaGraphicsMapResources(1, &phaseImageRes);
-    cudaGraphicsSubResourceGetMappedArray(&phaseImageArray, phaseImageRes, 0, 0);
+    cudaError_t error = cudaGraphicsGLRegisterImage(&phaseImageRes, phaseTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
+    if(error != cudaSuccess)
+        throw std::runtime_error("Failed to register OpenGL image: " + std::string(cudaGetErrorString(error)));
+
+    error = cudaGraphicsMapResources(1, &phaseImageRes);
+    if(error != cudaSuccess)
+        throw std::runtime_error("Failed to map image resource: " + std::string(cudaGetErrorString(error)));
+    
+    error = cudaGraphicsSubResourceGetMappedArray(&phaseImageArray, phaseImageRes, 0, 0);
+    if(error != cudaSuccess)
+        throw std::runtime_error("Failed to get mapped image array: " + std::string(cudaGetErrorString(error)));
+    
     cudaResourceDesc resDesc;
     resDesc.resType = cudaResourceTypeArray;
     resDesc.res.array.array = phaseImageArray;
-    cudaCreateSurfaceObject(&phaseImageSurface, &resDesc);
+    error = cudaCreateSurfaceObject(&phaseImageSurface, &resDesc);
+    if(error != cudaSuccess)
+        throw std::runtime_error("Failed to create image surface: " + std::string(cudaGetErrorString(error)));
 
     folder = (boost::filesystem::absolute(".").parent_path() / "images").string();
 }
@@ -408,14 +419,9 @@ void MainWindow::render()
     ImGui::Begin("Main Panel", nullptr, ImGuiWindowFlags_AlwaysAutoResize
     | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus ); 
-
-    // ImVec2 avail = ImGui::GetContentRegionAvail();
-    // float leftWidth = std::min(avail.x * 0.20f, 300.0f);
-    // float rightWidth = avail.x - leftWidth;
     
     ImGui::BeginChild("Left Panel", ImVec2(300, 0),true);
 
-    // Dropdown
     int childWidth = ImGui::GetWindowSize().x;
     ImGui::PushItemWidth(-FLT_MIN);
     ImGui::Text("Actual FrameRate"); ImGui::SameLine(childWidth/2);
@@ -426,7 +432,6 @@ void MainWindow::render()
     if(ImGui::Combo("##AlgorithmDropdown", &algorithmIndex, algorithmNames, IM_ARRAYSIZE(algorithmNames)))
     {
         algorithm = static_cast<GPU::Algorithm>(algorithmIndex);
-        // std::cout << "Currently Selected Algorithm: " << selectedAlgorithm << std::endl;
     }
 
     ImGui::Text("Buffer Mode"); ImGui::SameLine(childWidth/2);
@@ -467,11 +472,23 @@ void MainWindow::render()
 
     ImGui::Separator();
 
-    ImGui::Text("Number"); ImGui::SameLine(childWidth/2);
-    if(ImGui::InputInt("##numSuccessiveImages", &saveCount, 1)){
-        saveCount = std::max(0, saveCount);
+    bool savingImage = nImageToSave > 0;
+    bool savingPhaseMap =  nPhaseMapToSave > 0;
+    bool saving = savingImage || savingPhaseMap;
 
+    ImGui::Text("Number of Images"); ImGui::SameLine(childWidth/2);
+    if(ImGui::InputInt("##imageSaveCount", &imageSaveCount, 1)){
+        imageSaveCount = std::max(0, imageSaveCount);
     }
+
+    ImGui::Text("Number of PhaseMaps"); ImGui::SameLine(childWidth/2);
+    if(ImGui::InputInt("##phaseMapSaveCount", &phaseMapSaveCount, 1)){
+        phaseMapSaveCount = std::max(0, phaseMapSaveCount);
+    }
+
+    if(saving)
+        ImGui::BeginDisabled();
+    
     ImGui::Text("File Name"); ImGui::SameLine(childWidth/2);
     if(ImGui::InputText("##File Name", const_cast<char*>(filenameBuffer.c_str()), filenameBuffer.capacity() + 1, 
                     ImGuiInputTextFlags_CallbackResize, fileNameCallback, &filenameBuffer))
@@ -483,40 +500,24 @@ void MainWindow::render()
             invalidFilename = false;
     }
 
-    ImGui::Checkbox("Save Image", &ifSaveImage); 
-    ImGui::SameLine();
-    ImGui::Checkbox("Save PhaseMap", &ifSavePhaseMap); 
-
-    if(nPhaseMapToSave == 0 && nImageToSave == 0 && !invalidFilename)
-    {
-        if (ImGui::Button("Save")) 
-        {
-            //Save Phase Map flag
-            if(ifSavePhaseMap)
-            {
-                nPhaseMapToSave = saveCount;
-            }
-            if(ifSaveImage)
-            {
-                nImageToSave = saveCount;
-            }
-        }
-    }
-    else
-    {
-        ImGui::BeginDisabled();
-        ImGui::Button("Save");
+    if(saving)
         ImGui::EndDisabled();
+
+    if (ImGui::Button("Save")) 
+    {
+        nImageToSave += imageSaveCount;
+        nPhaseMapToSave += phaseMapSaveCount;
+        nPendingImage += imageSaveCount;
+        nPendingPhaseMap += phaseMapSaveCount;
     }
 
     ImGui::SameLine();
-    ImGui::Text("%d %d", nSavedImage.load(), nSavedPhaseMap.load());
+    ImGui::Text("%d/%d %d/%d", nSavedImage.load(), nImageToSave, nSavedPhaseMap.load(), nPhaseMapToSave);
 
     ImGui::PopItemWidth();
     ImGui::EndChild();
 
     ImGui::SameLine();
-    // ImGui::Spacing();
     ImGui::BeginChild("Right Panel", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
 
     ImGui::Image((ImTextureID)frameTexture, ImVec2(width, height));
@@ -554,26 +555,26 @@ int MainWindow::spin()
             const auto& [image, phaseMap] = tupleOpt.get();
             updateImage(image);
 
+            if(nPendingImage > 0)
+            {
+                service.post([this, image]{
+                    saveImage(image);
+                    nSavedImage ++;
+                }); 
+                nPendingImage --;  
+            }
+
             if(phaseMap != nullptr)
             {
                 gpu.calcPhaseImage(phaseMap, phaseImageSurface);
-            
-                if(nImageToSave)
-                {
-                    service.post([this, image]{
-                        saveImage(image);
-                        nSavedImage ++;
-                    }); 
-                    nImageToSave --;  
-                }
 
-                if(nPhaseMapToSave > 0 && phaseMap)
+                if(nPendingPhaseMap > 0)
                 {
                     service.post([this, phaseMap]{
                         savePhaseMap(phaseMap);
                         nSavedPhaseMap ++;
                     });
-                    nPhaseMapToSave --;
+                    nPendingPhaseMap --;
                 }
             }
 

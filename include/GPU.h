@@ -74,13 +74,12 @@ public:
 
     GPU(int width, int height);
     ~GPU();
-    void getCudaVersion();
     bool calcPhaseMap(Spinnaker::ImagePtr image, 
                         std::shared_ptr<float> phaseMap, 
                         Algorithm algorithm = Algorithm::CARRE,
                         BufferMode bufferMode = BufferMode::NEWSET);
 
-    bool calcPhaseImage(std::shared_ptr<float> phaseMap, 
+    void calcPhaseImage(std::shared_ptr<float> phaseMap, 
                         cudaSurfaceObject_t phaseImage);
 
 private:

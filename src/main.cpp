@@ -9,18 +9,6 @@
 #include <boost/optional.hpp>
 #include <boost/thread.hpp>
 
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GLFW/glfw3.h>
-
-#include <opencv2/opencv.hpp>
-
-#define WIDTH 720
-#define HEIGHT 540
-#define FRAMERATE 60
-#define EXPOSURETIME -1
-#define GAIN 0
-
 int main(int argc, char* argv[])
 {
     std::shared_ptr<FLIRCamera> cam = std::make_shared<FLIRCamera>();
@@ -35,7 +23,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    cameraConfig = cam->open(0);
+    cameraConfig = cam->open(deviceIds[0]);
     while(1)
     {
         {
@@ -63,7 +51,7 @@ int main(int argc, char* argv[])
                 }
                 catch(const boost::thread_interrupted& i)
                 {
-                    std::cout << "Gpu thread exited!\n";
+                    
                 }
 
                 cam->stop();

@@ -154,13 +154,14 @@ class MainWindow: public WindowBase
     DataQueue<std::tuple<Spinnaker::ImagePtr, std::shared_ptr<float>>> dataQueue;
     GPU gpu;
 
-    int saveCount = 0;
-    bool ifSavePhaseMap = false;
-    bool ifSaveImage = false;
     int nPhaseMapToSave = 0;
     int nImageToSave = 0;
     std::atomic<int> nSavedPhaseMap = 0;
     std::atomic<int> nSavedImage = 0;
+    int imageSaveCount = 0;
+    int phaseMapSaveCount = 0;
+    int nPendingImage = 0;
+    int nPendingPhaseMap = 0;
 
     boost::filesystem::path folder;
     std::string filenameBuffer = "data";

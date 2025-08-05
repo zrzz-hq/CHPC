@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.10)
-project(SpinnakerExample LANGUAGES CUDA CXX)
+project(PhaseVisualizer LANGUAGES CUDA CXX)
 
-# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(OpenCV REQUIRED)
 find_package(CUDA REQUIRED 10)
-find_package(Boost REQUIRED COMPONENTS filesystem system thread)
+find_package(Boost REQUIRED COMPONENTS log log_setup filesystem system thread date_time)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(ZLIB REQUIRED)
+
+add_definitions(-DBOOST_LOG_DYN_LINK)
 
 include_directories(
     /opt/spinnaker/include/ 
@@ -40,7 +40,7 @@ add_library(imgui
 
 target_link_libraries(imgui OpenGL::GL glfw)
 # Add executable
-add_executable(PhaseVisualizer
+add_executable(${PROJECT_NAME}
     src/cnpy.cpp
     src/main.cpp 
     src/FLIRCamera.cpp 
@@ -55,6 +55,9 @@ target_link_libraries(PhaseVisualizer
     ${CUDA_LIBRARIES} 
     ${OpenCV_LIBS}
     ImGuiFileDialog
+    Boost::log
+    Boost::log_setup
+    Boost::date_time
     Boost::filesystem
     Boost::system
     Boost::thread

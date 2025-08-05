@@ -1,5 +1,7 @@
 #include "GPU.h"
 
+#include <boost/log/trivial.hpp>
+
 __global__ void convert_type(uint8_t *inp, float *outp, int N);
 __global__ void novak(float* p1, float* p2, float* p3, float* p4, float* p5, float *phase, int N);
 __global__ void four_point(float* p1, float* p2, float* p3, float* p4, float *phase, int N);
@@ -38,33 +40,37 @@ GPU::GPU(int width, int height):width(width)
         throw std::runtime_error("Failed to create cuda stream 1: "+ std::string(cudaGetErrorString(error)));
     }
 
+    int version;
+    error = cudaRuntimeGetVersion(&version);
+    if(error != cudaSuccess)
+    {
+        BOOST_LOG_TRIVIAL(warning) << "Failed to get cuda runtime version";
+    }
+    else
+    {
+        BOOST_LOG_TRIVIAL(info) << "Cuda runtime version: " << version;
+    }
+
     cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
-
-    std::cout << "Number of SMs: " << prop.multiProcessorCount << std::endl;
-    std::cout << "Maximum threads per SM: " << prop.maxThreadsPerMultiProcessor << std::endl;
-    std::cout << "Maximum threads per block: " << prop.maxThreadsPerBlock << std::endl;
-    std::cout << "Maximum grid size: (" << prop.maxGridSize[0] << "," << prop.maxGridSize[1] << "," << prop.maxGridSize[2] << ")" << std::endl;
-
-    // pthread_mutex_init(&cosineBufferMutex, NULL);
+    error = cudaGetDeviceProperties(&prop, 0);
+    if(error != cudaSuccess)
+    {
+        BOOST_LOG_TRIVIAL(warning) << "Failed to get cuda device information";
+    }
+    else
+    {
+        BOOST_LOG_TRIVIAL(info) << "Number of SMs: " << prop.multiProcessorCount;
+        BOOST_LOG_TRIVIAL(info) << "Maximum threads per SM: " << prop.maxThreadsPerMultiProcessor;
+        BOOST_LOG_TRIVIAL(info) << "Maximum threads per block: " << prop.maxThreadsPerBlock;
+        BOOST_LOG_TRIVIAL(info) << "Maximum grid size: (" << prop.maxGridSize[0] << "," << prop.maxGridSize[1] << "," << prop.maxGridSize[2] << ")";
+    }
 };
 
 GPU::~GPU()
 {
-    // cudaFree(cosineHostBuffer);
     cudaFree(imageBuffer);
-
     cudaStreamDestroy(stream1);
 };
-
-void GPU::getCudaVersion()
-{
-    int rVersion = 0;
-
-    cudaError_t runtimeStatus = cudaRuntimeGetVersion(&rVersion);
-    std:: cout << rVersion << std::endl;
-
-}
 
 bool GPU::calcPhaseMap(Spinnaker::ImagePtr image, 
             std::shared_ptr<float> phaseMap, 
@@ -76,8 +82,7 @@ bool GPU::calcPhaseMap(Spinnaker::ImagePtr image,
     cudaError_t error = cudaMemcpyAsync(imageBuffer, image->GetData(), N, cudaMemcpyHostToDevice, stream1);
     if(error != cudaSuccess)
     {
-        std::cout << "Failed to copy image memory: " << cudaGetErrorString(error) << std::endl;
-        return false;
+        throw std::runtime_error("Failed to copy image memory: " + std::string(cudaGetErrorString(error)));
     }
 
     buffers.pop_back();
@@ -131,23 +136,19 @@ bool GPU::calcPhaseMap(Spinnaker::ImagePtr image,
     error = cudaStreamSynchronize(stream1);
     if(error != cudaSuccess)
     {
-        std::cout << "Failed to run phase algorithm: " << cudaGetErrorString(error) << std::endl;
-        return false;
+        throw std::runtime_error("Failed to run phase algorithm: " + std::string(cudaGetErrorString(error)));
     }
 
     return true;
 }
 
-bool GPU::calcPhaseImage(std::shared_ptr<float> phaseMap, cudaSurfaceObject_t phaseImage)
+void GPU::calcPhaseImage(std::shared_ptr<float> phaseMap, cudaSurfaceObject_t phaseImage)
 {
     create_phaseImage<<<blockPerGrid,threadPerBlock, 0, stream1>>>(phaseMap.get(), phaseImage, N, width);
     
     cudaError_t error = cudaStreamSynchronize(stream1);
     if(error != cudaSuccess)
     {
-        std::cout << "Failed to generate phase image: " << cudaGetErrorString(error) << std::endl;
-        return false;
+        throw std::runtime_error("Failed to generate phase image: " + std::string(cudaGetErrorString(error)));
     }
-
-    return true;
 }
