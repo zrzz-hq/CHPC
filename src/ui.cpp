@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <opencv4/opencv2/opencv.hpp>
 #include <opencv4/opencv2/core.hpp>
@@ -21,9 +22,9 @@ using namespace GenApi;
         try {                                  \
             expr;                              \
         } catch (const Spinnaker::Exception& e) { \
-            std::cerr << "[Spinnaker Error] "  \
-                      << e.GetErrorMessage()   \
-                      << std::endl;            \
+            BOOST_LOG_TRIVIAL(warning)         \
+                      << "[Spinnaker Error] "  \
+                      << e.GetErrorMessage();   \
         }                                      \
     } while (0)
     
@@ -36,17 +37,12 @@ WindowBase::WindowBase(size_t width, size_t height, const std::string& name)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-
-    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    (void)io;
-
     ImGui::StyleColorsLight();  // Use Light Mode Theme
 
     // Setup platform/renderer bindings
     frame = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
     glfwMakeContextCurrent(frame);
-    ImGui::CreateContext();
+
     ImGui_ImplGlfw_InitForOpenGL(frame, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 }
@@ -153,11 +149,11 @@ void WindowBase::render()
 
 StartupWindow::StartupWindow(std::shared_ptr<FLIRCamera::Config> config):
     WindowBase(300, 300, "Options"),
-    config_(config),
-    exposureModeEnum(config_->exposureMode),
-    triggerModeEnum(config_->triggerMode),
-    triggerSourceEnum(config_->triggerSource),
-    gainModeEnum(config_->gainMode)
+    config(config),
+    exposureModeEnum(config->exposureMode),
+    triggerModeEnum(config->triggerMode),
+    triggerSourceEnum(config->triggerSource),
+    gainModeEnum(config->gainMode)
 {
     
 }
@@ -173,85 +169,193 @@ void StartupWindow::render()
     | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
     | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus ); 
 
-    int width = config_->width->GetValue();
-    int height = config_->height->GetValue();
     int winWidth = ImGui::GetWindowWidth();
     ImGui::PushItemWidth(-FLT_MIN);
+
+    int width = config->width->GetValue();
     ImGui::Text("Width"); ImGui::SameLine(winWidth/2);
-    if(ImGui::InputInt("##Width", &width, 4))
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, invalidWidth ? IM_COL32(255, 0, 0, 255) : IM_COL32_WHITE);
+    invalidWidth = false;
+    if(ImGui::InputInt("##Width", &width, 0))
     {
-        IGNORE_SPINNAKER_ERROR(config_->width->SetValue(width));
+        try
+        {
+            config->width->SetValue(width);
+        }
+        catch(const Spinnaker::Exception& e)
+        {
+            invalidWidth = true;
+        }
     }
+    ImGui::PopStyleColor(1);
+
+    int height = config->height->GetValue();
     ImGui::Text("Height"); ImGui::SameLine(winWidth/2);
-    if(ImGui::InputInt("##Height", &height, 4))
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, invalidHeight ? IM_COL32(255, 0, 0, 255) : IM_COL32_WHITE);
+    invalidHeight = false;
+    if(ImGui::InputInt("##Height", &height, 0))
     {
-        IGNORE_SPINNAKER_ERROR(config_->height->SetValue(height));
+        try
+        {
+            config->height->SetValue(height);
+        }
+        catch(const Spinnaker::Exception& e)
+        {
+            invalidHeight = true;
+        }
     }
+    ImGui::PopStyleColor(1);
 
     ImGui::Separator();
 
-    float frameRate = config_->frameRate->GetValue();
-    ImGui::Text("Framerate");
-    ImGui::SameLine(winWidth/2);
-    if(ImGui::InputFloat("##Framerate", &frameRate))
+    double frameRate = config->frameRate->GetValue();
+    ImGui::Text("Framerate"); ImGui::SameLine(winWidth/2);
+
+    bool disableFrameRate = !IsWritable(config->frameRate);
+    if(disableFrameRate)
+        ImGui::BeginDisabled();
+
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, invalidFrameRate ? IM_COL32(255, 0, 0, 255) : IM_COL32_WHITE);
+    invalidFrameRate = false;
+
+    if(ImGui::InputDouble("##Framerate", &frameRate, 0.0, 0.0, "%.3f"))
     {
-        config_->acquisitionFrameRateEnable->SetValue(true);//Might need to move this to trigger mode(continuous)
-        IGNORE_SPINNAKER_ERROR(config_->frameRate->SetValue(frameRate));
+        config->acquisitionFrameRateEnable->SetValue(true);//Might need to move this to trigger mode(continuous)
+        
+        try
+        {
+            config->frameRate->SetValue(frameRate);
+        }
+        catch(const Spinnaker::Exception& e)
+        {
+            invalidFrameRate = true;
+        }
     }
+    ImGui::PopStyleColor(1);
+
+    if(disableFrameRate)
+        ImGui::EndDisabled();
+
     ImGui::Separator();
 
-    float exposureTime = config_->exposureTime->GetValue();
-    int exposureModeIndex = exposureModeEnum.getValueByName(config_->exposureMode->GetCurrentEntry()->GetSymbolic().c_str());
+    double exposureTime = config->exposureTime->GetValue();
+    int exposureModeIndex = exposureModeEnum.getValueByName(config->exposureMode->GetCurrentEntry()->GetSymbolic().c_str());
     ImGui::Text("Exposure Mode"); ImGui::SameLine(winWidth/2);
-
     auto [exposureModeNames, nExposureModes] = exposureModeEnum.getNames();
     if(ImGui::Combo("##ExposureMode", &exposureModeIndex, exposureModeNames, nExposureModes))
     {
-        CEnumEntryPtr entry = config_->exposureMode->GetEntryByName(exposureModeNames[exposureModeIndex]);
-        config_->exposureMode->SetIntValue(entry->GetValue());
+        CEnumEntryPtr entry = config->exposureMode->GetEntryByName(exposureModeNames[exposureModeIndex]);
+        config->exposureMode->SetIntValue(entry->GetValue());
     }
-    ImGui::Text("Exposure"); ImGui::SameLine(winWidth/2);
-    if(ImGui::InputFloat("##Exposure", &exposureTime) && IsWritable(config_->exposureTime))
+
+    ImGui::Text("Exposure Time"); ImGui::SameLine(winWidth/2);
+
+    bool disableExposureTime = !IsWritable(config->exposureTime);
+    if(disableExposureTime)
     {
-        IGNORE_SPINNAKER_ERROR(config_->exposureTime->SetValue(exposureTime));
+        ImGui::BeginDisabled();
+    }
+    else
+    {
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, invalidExposureTime ? IM_COL32(255, 0, 0, 255) : IM_COL32_WHITE);
+        invalidExposureTime = false;
+    }
+
+    if(ImGui::InputDouble("##ExposureTime", &exposureTime))
+    {
+        try
+        {
+            config->exposureTime->SetValue(exposureTime);
+        }
+        catch(const Spinnaker::Exception& e)
+        {
+            invalidExposureTime = true;
+        }
+    }
+
+    if(disableExposureTime)
+    {
+        ImGui::EndDisabled();
+    }
+    else
+    {
+        ImGui::PopStyleColor(1);
     }
 
     ImGui::Separator();
-    float gain = config_->gain->GetValue();
-    int gainModeIndex = gainModeEnum.getValueByName(config_->gainMode->GetCurrentEntry()->GetSymbolic().c_str());
+
+    double gain = config->gain->GetValue();
+    int gainModeIndex = gainModeEnum.getValueByName(config->gainMode->GetCurrentEntry()->GetSymbolic().c_str());
     auto [gainModeNames, nGainModes] = gainModeEnum.getNames();
     ImGui::Text("Gain Mode"); ImGui::SameLine(winWidth/2);
     if(ImGui::Combo("##GainMode", &gainModeIndex, gainModeNames, nGainModes))
     {
-        CEnumEntryPtr entry = config_->gainMode->GetEntryByName(gainModeNames[gainModeIndex]);
-        config_->gainMode->SetIntValue(entry->GetValue());
+        CEnumEntryPtr entry = config->gainMode->GetEntryByName(gainModeNames[gainModeIndex]);
+        config->gainMode->SetIntValue(entry->GetValue());
     }
 
     ImGui::Text("Gain"); ImGui::SameLine(winWidth/2);
-    if(ImGui::InputFloat("##Gain", &gain) && IsWritable(config_->gain))
+
+    bool disableGain = !IsWritable(config->gain);
+    if(disableGain)
     {
-        IGNORE_SPINNAKER_ERROR(config_->gain->SetValue((double)gain));
+        ImGui::BeginDisabled();
+    }
+    else
+    {
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, invalidGain ? IM_COL32(255, 0, 0, 255) : IM_COL32_WHITE);
+        invalidGain = false;
+    }
+
+    if(ImGui::InputDouble("##Gain", &gain))
+    {
+        try
+        {
+            config->gain->SetValue(gain);
+        }
+        catch(const Spinnaker::Exception& e)
+        {
+            invalidGain = true;
+        }
+    }
+
+    if(disableGain)
+    {
+        ImGui::EndDisabled();
+    }
+    else
+    {
+        ImGui::PopStyleColor(1);
     }
 
     ImGui::Separator();
     
-    int triggerModeIndex = triggerModeEnum.getValueByName(config_->triggerMode->GetCurrentEntry()->GetSymbolic().c_str());
+    int triggerModeIndex = triggerModeEnum.getValueByName(config->triggerMode->GetCurrentEntry()->GetSymbolic().c_str());
     auto [triggerModeNames, nTriggerModes] = triggerModeEnum.getNames();
     ImGui::Text("Trigger Mode"); ImGui::SameLine(winWidth/2); 
     if(ImGui::Combo("##TriggerMode", &triggerModeIndex, triggerModeNames, nTriggerModes))
     {
-        CEnumEntryPtr entry = config_->triggerMode->GetEntryByName(triggerModeNames[triggerModeIndex]);
-        config_->triggerMode->SetIntValue(entry->GetValue());
+        CEnumEntryPtr entry = config->triggerMode->GetEntryByName(triggerModeNames[triggerModeIndex]);
+        config->triggerMode->SetIntValue(entry->GetValue());
     }
 
-    int triggerSourceIndex = triggerSourceEnum.getValueByName(config_->triggerSource->GetCurrentEntry()->GetSymbolic().c_str());
+    int triggerSourceIndex = triggerSourceEnum.getValueByName(config->triggerSource->GetCurrentEntry()->GetSymbolic().c_str());
     auto [triggerSourceNames, nTriggerSources] = triggerSourceEnum.getNames();
     ImGui::Text("Trigger Source"); ImGui::SameLine(winWidth/2);
-    if(ImGui::Combo("##TriggerSource", &triggerSourceIndex, triggerSourceNames, nTriggerSources) && IsWritable(config_->triggerSource))
+    bool disableTriggerSource = !IsWritable(config->triggerSource);
+
+    if(disableTriggerSource)
+        ImGui::BeginDisabled();
+
+    if(ImGui::Combo("##TriggerSource", &triggerSourceIndex, triggerSourceNames, nTriggerSources))
     {
-        CEnumEntryPtr entry = config_->triggerSource->GetEntryByName(triggerSourceNames[triggerSourceIndex]);
-        IGNORE_SPINNAKER_ERROR(config_->triggerSource->SetIntValue(entry->GetValue()));
+        CEnumEntryPtr entry = config->triggerSource->GetEntryByName(triggerSourceNames[triggerSourceIndex]);
+        IGNORE_SPINNAKER_ERROR(config->triggerSource->SetIntValue(entry->GetValue()));
     }
+
+    if(disableTriggerSource)
+        ImGui::EndDisabled();
+
     ImGui::PopItemWidth();
 
     ImGui::Separator();
@@ -279,28 +383,28 @@ void StartupWindow::render()
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0); ImGui::Text("Width");
-        ImGui::TableSetColumnIndex(1); ImGui::Text("%ld", config_->width->GetMin());
-        ImGui::TableSetColumnIndex(2); ImGui::Text("%ld", config_->width->GetMax());
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%ld", config->width->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%ld", config->width->GetMax());
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0); ImGui::Text("Height");
-        ImGui::TableSetColumnIndex(1); ImGui::Text("%ld", config_->height->GetMin());
-        ImGui::TableSetColumnIndex(2); ImGui::Text("%ld", config_->height->GetMax());
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%ld", config->height->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%ld", config->height->GetMax());
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0); ImGui::Text("Framerate");
-        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config_->frameRate->GetMin());
-        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config_->frameRate->GetMax());
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config->frameRate->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config->frameRate->GetMax());
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0); ImGui::Text("Exposure Time");
-        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config_->exposureTime->GetMin());
-        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config_->exposureTime->GetMax());
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config->exposureTime->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config->exposureTime->GetMax());
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0); ImGui::Text("Gain");
-        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config_->gain->GetMin());
-        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config_->gain->GetMax());
+        ImGui::TableSetColumnIndex(1); ImGui::Text("%.1f", config->gain->GetMin());
+        ImGui::TableSetColumnIndex(2); ImGui::Text("%.1f", config->gain->GetMax());
         
         ImGui::EndTable();
     }

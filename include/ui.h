@@ -32,7 +32,6 @@ class WindowBase
     void spinOnce();
     bool ok();
     void setSize(size_t width, size_t height);
-    void setResizable(bool enable);
 
     protected:
     GLFWwindow* frame;
@@ -112,7 +111,7 @@ class StartupWindow: public WindowBase
     void render() final;
 
     private:
-    std::shared_ptr<FLIRCamera::Config> config_;
+    std::shared_ptr<FLIRCamera::Config> config;
 
     Enumerate triggerSourceEnum;
     Enumerate triggerModeEnum;
@@ -120,6 +119,12 @@ class StartupWindow: public WindowBase
     Enumerate gainModeEnum;
 
     bool showInfoWindow = false;
+
+    bool invalidWidth = false;
+    bool invalidHeight = false;
+    bool invalidFrameRate = false;
+    bool invalidExposureTime = false;
+    bool invalidGain = false;
 };
 
 class MainWindow: public WindowBase
