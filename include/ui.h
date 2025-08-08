@@ -148,9 +148,10 @@ class MainWindow: public WindowBase
     std::unique_ptr<boost::asio::io_service::work> work;
     std::thread workThread;
     
+    int fps = 0;
+    int nFrames = 0;
     std::chrono::system_clock::time_point now;
     std::chrono::system_clock::time_point last;
-    int duration = 100000;
     int width;
     int height;
     static int fileNameCallback(ImGuiInputTextCallbackData* data);

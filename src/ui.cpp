@@ -529,7 +529,7 @@ void MainWindow::render()
     int childWidth = ImGui::GetWindowSize().x;
     ImGui::PushItemWidth(-FLT_MIN);
     ImGui::Text("Actual FrameRate"); ImGui::SameLine(childWidth/2);
-    ImGui::Text("%.1f", (1000.0 / duration));
+    ImGui::Text("%d", fps);
 
     ImGui::Text("Algorithm"); ImGui::SameLine(childWidth/2);
     int algorithmIndex = static_cast<int>(algorithm.load());
@@ -683,8 +683,17 @@ int MainWindow::spin()
             }
 
             now = std::chrono::system_clock::now();
-            duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
-            last = now;
+            int64_t duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+            if(duration > 500)
+            {
+                fps = nFrames / ((float)duration / 1000.0f);
+                last = now;
+                nFrames = 0;
+            }
+            else
+            {
+                nFrames ++;
+            }
         }
 
         spinOnce();

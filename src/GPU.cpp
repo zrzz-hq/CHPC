@@ -12,7 +12,7 @@ GPU::GPU(int width, int height):width(width)
 {
     eleCount = 0;
     N = width * height;
-    threadPerBlock = 256;
+    threadPerBlock = 512;
     blockPerGrid = (N + threadPerBlock - 1) / threadPerBlock;
 
     cudaError_t error;
